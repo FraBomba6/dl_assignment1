@@ -1,32 +1,45 @@
+# %%
 import json
 import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
+import torchvision.transforms.functional as TF
 from torch.utils.data import Dataset
-from PIL import Image
+from abc import ABC, abstractmethod
+from PIL import Image # module
+from PIL.Image import Image as PilImage # object
+from random import randint
 
-# %%
+# Defining project root in order to avoid relative paths
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # Initializing torch device according to hardware available
-if torch.cuda.is_available():
-    device = torch.device('cuda')
-else:
-    device = torch.device('cpu')
-
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # %%
+
+class ITransform(ABC):
+
+    @abstractmethod
+    def __call__(self, input: PilImage) -> PilImage:
+        pass     
+    
+
 class CustomDataset(Dataset):
     """
     Class that represents a dataset object to use as input on a CNN
     """
-    def __init__(self, root, transforms=None):
+    def __init__(self, root, transforms : list[ITransform] = []):
         """
         Default initializer
         :param root: path to dataset root
         :param transforms: optional list of transforms
         """
         self.root = root
+
+        self.transforms = transforms
 
         # Load images filelist
         self.images = list(sorted(os.listdir(os.path.join(root, "images"))))
@@ -39,6 +52,8 @@ class CustomDataset(Dataset):
         :param index: index of the wanted image + annotation
         :return: image as PIL Image and target dictionary
         """
+
+        # TODO apply each transform if not empty 
         return self.__load_image(index), self.__generate_target(index)
 
     def __load_image(self, index):
@@ -59,7 +74,6 @@ class CustomDataset(Dataset):
         annotation_path = os.path.join(self.root, "annotations", self.annotations[index])
         with open(annotation_path, "r") as fp:
             annotation_json = json.load(fp)
-            fp.close()
         return [value for key, value in annotation_json.items() if "item" in key]
 
     def __generate_target(self, index):
@@ -75,13 +89,13 @@ class CustomDataset(Dataset):
         for annotation in annotations:
             boxes.append(annotation["bounding_box"])
             labels.append(annotation["category_id"])
-        boxes = torch.as_tensor(boxes, dtype=torch.float32, device=device)
-        labels = torch.as_tensor(labels, dtype=torch.int64, device=device)
+        boxes = torch.as_tensor(boxes, dtype=torch.float32, device=DEVICE)
+        labels = torch.as_tensor(labels, dtype=torch.int64, device=DEVICE)
         area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
         return {
             "boxes": boxes,
             "labels": labels,
-            "image_id": torch.tensor([index], device=device),
+            "image_id": torch.tensor([index], device=DEVICE),
             "area": area,
             "isCrowd": isCrowd
         }
@@ -89,6 +103,20 @@ class CustomDataset(Dataset):
     def __len__(self):
         return len(self.images)
 
+        
+class TestTransform(ITransform):
 
-#%%
-dataset = CustomDataset("../data/assignment_1/train")
+    def __init__(self, size: tuple[int, int] | int) -> None:
+        self.size = size 
+    
+    def __call__(self, input: PilImage | torch.Tensor) -> PilImage | torch.Tensor:
+        return TF.resize(input, size=self.size)
+
+# %%
+
+dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
+
+# testing
+scale = TestTransform((200,200))
+image, label = dataset[randint(0, len(dataset))]
+scale(image).show()
