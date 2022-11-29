@@ -25,18 +25,14 @@ class CustomDataset(Dataset):
     """
     Class that represents a dataset object to use as input on a CNN
     """
-    def __init__(self, root, transformation=None):
+    def __init__(self, root, size=256):
         """
         Default initializer
         :param root: path to dataset root
-        :param transformation: optional list of transforms
+        :param size: optional target size for the image
         """
         self.root = root
-
-        if transformation is not None:
-            self.transforms = transforms.Compose(transformation)
-        else:
-            self.transforms = None
+        self.size = size
 
         # Load images filelist
         self.images = list(sorted(os.listdir(os.path.join(root, "images"))))
@@ -51,9 +47,37 @@ class CustomDataset(Dataset):
         """
         img = self.__load_image(index)
         target = self.__generate_target(index)
-        if self.transforms is not None:
-            img = self.transforms(img)
+        return self.__apply_transform(img, target)
+
+    def __apply_transform(self, img, target):
+        """
+        Apply a resize transformation to an image and its target
+        :param img: image as PIL Image
+        :param target: dict representing the bounding boxes
+        """
+        target["boxes"] = self.__resize_boxes(target["boxes"], img.size)
+        transform = transforms.Resize((self.size, self.size))
+        img = transform(img)
         return img, target
+
+    def __resize_boxes(self, boxes, img_size):
+        """
+        Apply to bounding boxes the same resize as the corresponding image
+        :param boxes: tensor containing the coordinates of the bounding boxes
+        :param img_size: size of the original image
+        """
+        x_scale = self.size/img_size[0]
+        y_scale = self.size/img_size[1]
+
+        scaled_boxes = []
+        for box in boxes:
+            box = box.tolist()
+            x = int(np.round(box[0] * x_scale))
+            y = int(np.round(box[1] * y_scale))
+            xmax = int(np.round(box[2] * x_scale))
+            ymax = int(np.round(box[3] * y_scale))
+            scaled_boxes.append(box)
+        return torch.as_tensor(scaled_boxes, dtype=torch.float32, device=DEVICE)
 
     def __load_image(self, index):
         """
@@ -104,12 +128,9 @@ class CustomDataset(Dataset):
 
 
 # %%
-t = [transforms.Resize((225, 225))]
-dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"), t)
+dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"), 225)
 
 image, target = dataset[randint(0, len(dataset))]
-
-image.show()
 
 # %%
 dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
