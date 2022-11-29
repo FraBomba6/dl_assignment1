@@ -18,8 +18,8 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Initializing torch device according to hardware available
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# %%
 
+# %%
 class ITransform(ABC):
 
     @abstractmethod
@@ -31,7 +31,7 @@ class CustomDataset(Dataset):
     """
     Class that represents a dataset object to use as input on a CNN
     """
-    def __init__(self, root, transforms : list[ITransform] = []):
+    def __init__(self, root, transforms: list[ITransform] = []):
         """
         Default initializer
         :param root: path to dataset root
@@ -39,7 +39,7 @@ class CustomDataset(Dataset):
         """
         self.root = root
 
-        self.transforms = transforms
+        self.transforms = torchvision.transforms.Compose(transforms)
 
         # Load images filelist
         self.images = list(sorted(os.listdir(os.path.join(root, "images"))))
@@ -53,8 +53,11 @@ class CustomDataset(Dataset):
         :return: image as PIL Image and target dictionary
         """
 
-        # TODO apply each transform if not empty 
-        return self.__load_image(index), self.__generate_target(index)
+        img = self.__load_image(index)
+        target = self.__generate_target(index)
+        if self.transforms is not None:
+            img, target = self.transforms(img, target)
+        return img, target
 
     def __load_image(self, index):
         """
@@ -112,8 +115,8 @@ class TestTransform(ITransform):
     def __call__(self, input: PilImage | torch.Tensor) -> PilImage | torch.Tensor:
         return TF.resize(input, size=self.size)
 
-# %%
 
+# %%
 dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
 
 # testing
