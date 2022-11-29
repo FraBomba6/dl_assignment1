@@ -39,6 +39,9 @@ class CustomDataset(Dataset):
         # Load annotations filelist
         self.annotations = list(sorted(os.listdir(os.path.join(root, "annotations"))))
 
+    def set_size(self, size):
+        self.size = size
+
     def __getitem__(self, index):
         """
         Default getter for dataset objects
@@ -149,11 +152,10 @@ def with_bounding_box(image, target):
 
 # %%
 
-def plot_size_distribution():
-    dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
+def plot_size_distribution(dataset):
     aspect_ratios = np.empty(len(dataset), dtype=float)
     for i in range(len(dataset)):
-        img, target = dataset[i]
+        img, _ = dataset[i]
         sizes = img.size
         aspect_ratios = np.append(aspect_ratios, sizes[0] / sizes[1])
 
@@ -163,7 +165,12 @@ def plot_size_distribution():
 # %%
 
 # Loading training dataset 
-dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"), 225)
+
+dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
+
+# plot_size_distribution(dataset)
+
+dataset.set_size(225)
 
 # random image
 image, target = dataset[randint(0, len(dataset))]
