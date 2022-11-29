@@ -112,13 +112,15 @@ image, target = dataset[randint(0, len(dataset))]
 image.show()
 
 # %%
+
 dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
-aspect_ratios = []
+aspect_ratios = np.empty(len(dataset), dtype=float)
 for i in range(len(dataset)):
     img, target = dataset[i]
     sizes = img.size
-    aspect_ratios.append(sizes[0]/sizes[1])
+    aspect_ratios = np.append(aspect_ratios, sizes[0] / sizes[1])
 
-# %%
 plt.bar(*np.unique(aspect_ratios, return_counts=True))
 plt.show()
+
+# %%
