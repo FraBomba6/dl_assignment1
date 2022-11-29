@@ -10,6 +10,8 @@ from abc import ABC, abstractmethod
 from PIL import Image  # module
 from PIL.Image import Image as PilImage  # object
 from random import randint
+import matplotlib.pyplot as plt
+import numpy as np
 
 # Defining project root in order to avoid relative paths
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -19,7 +21,6 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # %%
-
 class CustomDataset(Dataset):
     """
     Class that represents a dataset object to use as input on a CNN
@@ -32,7 +33,10 @@ class CustomDataset(Dataset):
         """
         self.root = root
 
-        self.transforms = transforms.Compose(transformation)
+        if transformation is not None:
+            self.transforms = transforms.Compose(transformation)
+        else:
+            self.transforms = None
 
         # Load images filelist
         self.images = list(sorted(os.listdir(os.path.join(root, "images"))))
@@ -45,7 +49,6 @@ class CustomDataset(Dataset):
         :param index: index of the wanted image + annotation
         :return: image as PIL Image and target dictionary
         """
-
         img = self.__load_image(index)
         target = self.__generate_target(index)
         if self.transforms is not None:
@@ -109,3 +112,13 @@ image, target = dataset[randint(0, len(dataset))]
 image.show()
 
 # %%
+dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
+aspect_ratios = []
+for i in range(len(dataset)):
+    img, target = dataset[i]
+    sizes = img.size
+    aspect_ratios.append(sizes[0]/sizes[1])
+
+# %%
+plt.bar(*np.unique(aspect_ratios, return_counts=True))
+plt.show()
