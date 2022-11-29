@@ -142,23 +142,33 @@ class CustomDataset(Dataset):
 
 
 # %%
-dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"), 225)
 
-image, target = dataset[randint(0, len(dataset))]
-
-tens = torchvision.utils.draw_bounding_boxes(transforms.PILToTensor()(image), target['boxes'], target['categories'], colors="red", width=2)
-transforms.ToPILImage()(tens).show()
+def with_bounding_box(image, target):
+    tensor_image = torchvision.utils.draw_bounding_boxes(transforms.PILToTensor()(image), target['boxes'], target['categories'], colors="red", width=2)
+    return transforms.ToPILImage()(tensor_image)
 
 # %%
 
-dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
-aspect_ratios = np.empty(len(dataset), dtype=float)
-for i in range(len(dataset)):
-    img, target = dataset[i]
-    sizes = img.size
-    aspect_ratios = np.append(aspect_ratios, sizes[0] / sizes[1])
+def plot_size_distribution():
+    dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
+    aspect_ratios = np.empty(len(dataset), dtype=float)
+    for i in range(len(dataset)):
+        img, target = dataset[i]
+        sizes = img.size
+        aspect_ratios = np.append(aspect_ratios, sizes[0] / sizes[1])
 
-plt.bar(*np.unique(aspect_ratios, return_counts=True))
-plt.show()
+    plt.bar(*np.unique(aspect_ratios, return_counts=True))
+    plt.show()
 
+# %%
+
+# Loading training dataset 
+dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"), 225)
+
+# random image
+image, target = dataset[randint(0, len(dataset))]
+
+# check bounding box
+
+with_bounding_box(image, target).show()
 # %%
