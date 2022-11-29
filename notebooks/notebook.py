@@ -7,8 +7,8 @@ import torch.nn.functional as F
 from torchvision import transforms
 from torch.utils.data import Dataset
 from abc import ABC, abstractmethod
-from PIL import Image # module
-from PIL.Image import Image as PilImage # object
+from PIL import Image  # module
+from PIL.Image import Image as PilImage  # object
 from random import randint
 
 # Defining project root in order to avoid relative paths
@@ -24,11 +24,11 @@ class CustomDataset(Dataset):
     """
     Class that represents a dataset object to use as input on a CNN
     """
-    def __init__(self, root, transformation = []):
+    def __init__(self, root, transformation=None):
         """
         Default initializer
         :param root: path to dataset root
-        :param transforms: optional list of transforms
+        :param transformation: optional list of transforms
         """
         self.root = root
 
@@ -99,14 +99,12 @@ class CustomDataset(Dataset):
     def __len__(self):
         return len(self.images)
 
-        
 
 # %%
-
-t = [transforms.Resize((225,225))]
+t = [transforms.Resize((225, 225))]
 dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"), t)
 
-image, label = dataset[randint(0, len(dataset))]
+image, target = dataset[randint(0, len(dataset))]
 
 image.show()
 
