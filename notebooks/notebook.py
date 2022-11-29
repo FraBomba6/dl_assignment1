@@ -136,6 +136,8 @@ dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "trai
 
 image, target = dataset[randint(0, len(dataset))]
 
+tens = torchvision.utils.draw_bounding_boxes(transforms.PILToTensor()(image), target['boxes'])
+transforms.ToPILImage()(tens).show()
 # %%
 
 dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
