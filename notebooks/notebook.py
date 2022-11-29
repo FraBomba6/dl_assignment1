@@ -7,7 +7,6 @@ import torch.nn.functional as F
 import torchvision.utils
 from torchvision import transforms, utils
 from torch.utils.data import Dataset
-from abc import ABC, abstractmethod
 from PIL import Image  # module
 from PIL.Image import Image as PilImage  # object
 from random import randint
@@ -149,6 +148,7 @@ image, target = dataset[randint(0, len(dataset))]
 
 tens = torchvision.utils.draw_bounding_boxes(transforms.PILToTensor()(image), target['boxes'], target['categories'], colors="red", width=2)
 transforms.ToPILImage()(tens).show()
+
 # %%
 
 dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
