@@ -1,6 +1,7 @@
 # %%
 import json
 import os
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -154,7 +155,7 @@ def with_bounding_box(image, target):
 
 def plot_size_distribution(dataset):
     aspect_ratios = np.empty(len(dataset), dtype=float)
-    for i in range(len(dataset)):
+    for i in tqdm(range(len(dataset))):
         img, _ = dataset[i]
         sizes = img.size
         aspect_ratios = np.append(aspect_ratios, sizes[0] / sizes[1])
@@ -168,7 +169,7 @@ def plot_size_distribution(dataset):
 
 dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
 
-# plot_size_distribution(dataset)
+plot_size_distribution(dataset)
 
 dataset.set_size(225)
 
