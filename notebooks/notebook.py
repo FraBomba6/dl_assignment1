@@ -112,16 +112,19 @@ class CustomDataset(Dataset):
         annotations = self.__load_annotation(index)
         boxes = []
         labels = []
+        categories = []
         isCrowd = torch.zeros((len(annotations),), dtype=torch.int64)
         for annotation in annotations:
             boxes.append(annotation["bounding_box"])
             labels.append(annotation["category_id"])
+            categories.append(annotation['category_name'])
         boxes = torch.as_tensor(boxes, dtype=torch.float32, device=DEVICE)
         labels = torch.as_tensor(labels, dtype=torch.int64, device=DEVICE)
         area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
         return {
             "boxes": boxes,
             "labels": labels,
+            "categories": categories,
             "image_id": torch.tensor([index], device=DEVICE),
             "area": area,
             "isCrowd": isCrowd
@@ -136,7 +139,7 @@ dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "trai
 
 image, target = dataset[randint(0, len(dataset))]
 
-tens = torchvision.utils.draw_bounding_boxes(transforms.PILToTensor()(image), target['boxes'])
+tens = torchvision.utils.draw_bounding_boxes(transforms.PILToTensor()(image), target['boxes'], target['categories'], colors="red", width=2)
 transforms.ToPILImage()(tens).show()
 # %%
 
