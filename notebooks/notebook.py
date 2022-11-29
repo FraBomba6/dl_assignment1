@@ -30,7 +30,7 @@ class CustomDataset(Dataset):
         """
         Default initializer
         :param root: path to dataset root
-        :param size: optional target size for the image
+        :param size: optional target size for the image, if None no resizing
         """
         self.root = root
         self.size = size
@@ -60,6 +60,7 @@ class CustomDataset(Dataset):
         :param target: dict representing the bounding boxes
         """
         target["boxes"] = self.__resize_boxes(target["boxes"], img.size)
+        target["area"] = self.__compute_area(target["boxes"])
         transform = transforms.Resize((self.size, self.size))
         img = transform(img)
         return img, target
@@ -82,6 +83,13 @@ class CustomDataset(Dataset):
             y_max = int(np.round(box[3] * y_scale))
             scaled_boxes.append([x, y, x_max, y_max])
         return torch.as_tensor(scaled_boxes, dtype=torch.float32, device=DEVICE)
+
+    def __compute_area(self, boxes):
+        """
+        Compute area of a tensor of bounding boxes
+        :params boxes: bounding boxes
+        """
+        return (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
 
     def __load_image(self, index):
         """
@@ -120,7 +128,7 @@ class CustomDataset(Dataset):
             categories.append(annotation['category_name'])
         boxes = torch.as_tensor(boxes, dtype=torch.float32, device=DEVICE)
         labels = torch.as_tensor(labels, dtype=torch.int64, device=DEVICE)
-        area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
+        area = self.__compute_area(boxes)
         return {
             "boxes": boxes,
             "labels": labels,
