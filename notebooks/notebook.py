@@ -4,7 +4,8 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import transforms
+import torchvision.utils
+from torchvision import transforms, utils
 from torch.utils.data import Dataset
 from abc import ABC, abstractmethod
 from PIL import Image  # module
@@ -25,7 +26,7 @@ class CustomDataset(Dataset):
     """
     Class that represents a dataset object to use as input on a CNN
     """
-    def __init__(self, root, size=256):
+    def __init__(self, root, size=None):
         """
         Default initializer
         :param root: path to dataset root
@@ -47,7 +48,10 @@ class CustomDataset(Dataset):
         """
         img = self.__load_image(index)
         target = self.__generate_target(index)
-        return self.__apply_transform(img, target)
+        if self.size is not None:
+            return self.__apply_transform(img, target)
+        else:
+            return img, target
 
     def __apply_transform(self, img, target):
         """
@@ -74,9 +78,9 @@ class CustomDataset(Dataset):
             box = box.tolist()
             x = int(np.round(box[0] * x_scale))
             y = int(np.round(box[1] * y_scale))
-            xmax = int(np.round(box[2] * x_scale))
-            ymax = int(np.round(box[3] * y_scale))
-            scaled_boxes.append(box)
+            x_max = int(np.round(box[2] * x_scale))
+            y_max = int(np.round(box[3] * y_scale))
+            scaled_boxes.append([x, y, x_max, y_max])
         return torch.as_tensor(scaled_boxes, dtype=torch.float32, device=DEVICE)
 
     def __load_image(self, index):
