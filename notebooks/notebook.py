@@ -4,8 +4,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
-import torchvision.transforms.functional as TF
+from torchvision import transforms
 from torch.utils.data import Dataset
 from abc import ABC, abstractmethod
 from PIL import Image # module
@@ -20,18 +19,12 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # %%
-class ITransform(ABC):
-
-    @abstractmethod
-    def __call__(self, input: PilImage) -> PilImage:
-        pass     
-    
 
 class CustomDataset(Dataset):
     """
     Class that represents a dataset object to use as input on a CNN
     """
-    def __init__(self, root, transforms: list[ITransform] = []):
+    def __init__(self, root, transformation = []):
         """
         Default initializer
         :param root: path to dataset root
@@ -39,7 +32,7 @@ class CustomDataset(Dataset):
         """
         self.root = root
 
-        self.transforms = torchvision.transforms.Compose(transforms)
+        self.transforms = transforms.Compose(transformation)
 
         # Load images filelist
         self.images = list(sorted(os.listdir(os.path.join(root, "images"))))
@@ -56,7 +49,7 @@ class CustomDataset(Dataset):
         img = self.__load_image(index)
         target = self.__generate_target(index)
         if self.transforms is not None:
-            img, target = self.transforms(img, target)
+            img = self.transforms(img)
         return img, target
 
     def __load_image(self, index):
@@ -107,19 +100,14 @@ class CustomDataset(Dataset):
         return len(self.images)
 
         
-class TestTransform(ITransform):
-
-    def __init__(self, size: tuple[int, int] | int) -> None:
-        self.size = size 
-    
-    def __call__(self, input: PilImage | torch.Tensor) -> PilImage | torch.Tensor:
-        return TF.resize(input, size=self.size)
-
 
 # %%
-dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
 
-# testing
-scale = TestTransform((200,200))
+t = [transforms.Resize((225,225))]
+dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"), t)
+
 image, label = dataset[randint(0, len(dataset))]
-scale(image).show()
+
+image.show()
+
+# %%
