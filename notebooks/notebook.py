@@ -1,24 +1,25 @@
 # %%
 import json
 import os
-from tqdm import tqdm
+from random import randint
+import libs.utils as custom_utils
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torchvision.utils
-from torchvision import transforms, utils
+import torch.nn.functional as f
+from torchvision import transforms
 from torch.utils.data import Dataset
 from PIL import Image  # module
-from PIL.Image import Image as PilImage  # object
-from random import randint
-import matplotlib.pyplot as plt
-import numpy as np
 
 # Defining project root in order to avoid relative paths
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Initializing torch device according to hardware available
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# determine the current device and based on that set the pin memory flag
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+PIN_MEMORY = True if DEVICE == "cuda" else False
 
 
 # %%
@@ -63,7 +64,7 @@ class CustomDataset(Dataset):
         :param target: dict representing the bounding boxes
         """
         target["boxes"] = self.__resize_boxes(target["boxes"], img.size)
-        target["area"] = self.__compute_area(target["boxes"])
+        target["area"] = custom_utils.compute_area(target["boxes"])
         transform = transforms.Resize((self.size, self.size))
         img = transform(img)
         return img, target
@@ -86,13 +87,6 @@ class CustomDataset(Dataset):
             y_max = int(np.round(box[3] * y_scale))
             scaled_boxes.append([x, y, x_max, y_max])
         return torch.as_tensor(scaled_boxes, dtype=torch.float32, device=DEVICE)
-
-    def __compute_area(self, boxes):
-        """
-        Compute area of a tensor of bounding boxes
-        :params boxes: bounding boxes
-        """
-        return (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
 
     def __load_image(self, index):
         """
@@ -131,7 +125,7 @@ class CustomDataset(Dataset):
             categories.append(annotation['category_name'])
         boxes = torch.as_tensor(boxes, dtype=torch.float32, device=DEVICE)
         labels = torch.as_tensor(labels, dtype=torch.int64, device=DEVICE)
-        area = self.__compute_area(boxes)
+        area = custom_utils.compute_area(boxes)
         return {
             "boxes": boxes,
             "labels": labels,
@@ -146,37 +140,17 @@ class CustomDataset(Dataset):
 
 
 # %%
-
-def with_bounding_box(image, target):
-    tensor_image = torchvision.utils.draw_bounding_boxes(transforms.PILToTensor()(image), target['boxes'], target['categories'], colors="red", width=2)
-    return transforms.ToPILImage()(tensor_image)
-
-# %%
-
-def plot_size_distribution(dataset):
-    aspect_ratios = np.empty(len(dataset), dtype=float)
-    for i in tqdm(range(len(dataset))):
-        img, _ = dataset[i]
-        sizes = img.size
-        aspect_ratios = np.append(aspect_ratios, sizes[0] / sizes[1])
-
-    plt.bar(*np.unique(aspect_ratios, return_counts=True))
-    plt.show()
-
-# %%
-
 # Loading training dataset 
 
 dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
 
-plot_size_distribution(dataset)
+# plot_size_distribution(dataset)
 
-dataset.set_size(225)
+dataset.set_size(256)
 
 # random image
 image, target = dataset[randint(0, len(dataset))]
 
 # check bounding box
 
-with_bounding_box(image, target).show()
-# %%
+custom_utils.with_bounding_box(image, target).show()
