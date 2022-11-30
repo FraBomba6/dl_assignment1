@@ -64,7 +64,6 @@ class CustomDataset(Dataset):
         :param target: dict representing the bounding boxes
         """
         target["boxes"] = self.__resize_boxes(target["boxes"], img.size)
-        target["area"] = custom_utils.compute_area(target["boxes"])
         transform = transforms.Resize((self.size, self.size))
         img = transform(img)
         return img, target
@@ -118,21 +117,17 @@ class CustomDataset(Dataset):
         boxes = []
         labels = []
         categories = []
-        isCrowd = torch.zeros((len(annotations),), dtype=torch.int64)
         for annotation in annotations:
             boxes.append(annotation["bounding_box"])
             labels.append(annotation["category_id"])
             categories.append(annotation['category_name'])
         boxes = torch.as_tensor(boxes, dtype=torch.float32, device=DEVICE)
         labels = torch.as_tensor(labels, dtype=torch.int64, device=DEVICE)
-        area = custom_utils.compute_area(boxes)
         return {
             "boxes": boxes,
             "labels": labels,
             "categories": categories,
-            "image_id": torch.tensor([index], device=DEVICE),
-            "area": area,
-            "isCrowd": isCrowd
+            "image_id": torch.tensor([index], device=DEVICE)
         }
 
     def __len__(self):

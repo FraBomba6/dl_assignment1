@@ -28,15 +28,6 @@ def collate_fn(batch):
     return images, boxes, labels
 
 
-def compute_area(boxes):
-    """
-    Compute area of a tensor of bounding boxes (N, 4)
-    :params boxes: bounding boxes, a tensor (N, 4)
-    :return the tensor of length N containing the areas of the bounding boxes
-    """
-    return (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
-
-
 def with_bounding_box(image, target):
     """
     Returns an image with bounding boxes and labels
