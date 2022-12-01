@@ -17,9 +17,8 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Initializing torch device according to hardware available
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# determine the current device and based on that set the pin memory flag
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-PIN_MEMORY = True if DEVICE == "cuda" else False
+# Initialize training variables
+BATCH = 16
 
 
 # %%
@@ -64,7 +63,7 @@ class CustomDataset(Dataset):
         :param target: dict representing the bounding boxes
         """
         target["boxes"] = self.__resize_boxes(target["boxes"], img.size)
-        transform = transforms.Resize((self.size, self.size))
+        transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((self.size, self.size))])
         img = transform(img)
         return img, target
 
@@ -137,15 +136,18 @@ class CustomDataset(Dataset):
 # %%
 # Loading training dataset 
 
-dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
+train_dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
 
 # plot_size_distribution(dataset)
 
-dataset.set_size(256)
+train_dataset.set_size(256)
 
 # random image
-image, target = dataset[randint(0, len(dataset))]
+image, target = train_dataset[randint(0, len(train_dataset))]
 
 # check bounding box
 
 custom_utils.with_bounding_box(image, target).show()
+
+# Building training dataloader
+train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH, shuffle=True, num_workers=4, collate_fn=custom_utils.collate_fn)

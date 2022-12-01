@@ -12,16 +12,14 @@ def collate_fn(batch):
     :param batch: an iterable of N sets from __getitem__() of CustomDataset
     :return: a tensor of images, lists of varying-size tensors of bounding boxes and labels
     """
-
     images = list()
     boxes = list()
     labels = list()
-    difficulties = list()
 
     for b in batch:
         images.append(b[0])
-        boxes.append(b[1])
-        labels.append(b[2])
+        boxes.append(b[1]["boxes"])
+        labels.append(b[1]["labels"])
 
     images = torch.stack(images, dim=0)
 
@@ -31,10 +29,10 @@ def collate_fn(batch):
 def with_bounding_box(image, target):
     """
     Returns an image with bounding boxes and labels
-    :param image: PIL image
+    :param image: image as Tensor
     :param target: dict representing containing the bounding boxes
     """
-    tensor_image = torchvision.utils.draw_bounding_boxes(transforms.PILToTensor()(image), target['boxes'], target['categories'], colors="red", width=2)
+    tensor_image = torchvision.utils.draw_bounding_boxes(transforms.PILToTensor()(transforms.ToPILImage()(image)), target['boxes'], target['categories'], colors="red", width=2)
     return transforms.ToPILImage()(tensor_image)
 
 
