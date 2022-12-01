@@ -164,13 +164,13 @@ train_dataset.set_size(256)
 
 # random image
 image, target = train_dataset[randint(0, len(train_dataset))]
-transforms.ToPILImage()(target['objectness']["matrix"]).show()
+# transforms.ToPILImage()(target['objectness']["matrix"]).show()
 
 print(target['objectness']["matrix"])
 
 # check bounding box
 
-custom_utils.with_bounding_box(image, target).show()
+# custom_utils.with_bounding_box(image, target).show()
 
 # Building training dataloader
 train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH, shuffle=True, num_workers=0, collate_fn=custom_utils.collate_fn)
@@ -243,8 +243,7 @@ p_boxes = torch.stack(p_boxes)
 p_labels = torch.stack(p_labels)
 p_objectness = torch.stack(p_objectness)
 
-objectness_matrix = [...]
-objectness = torch.stack(objectness_matrix).reshape(BATCH, 49)
+objectness = torch.stack([entry['matrix'] for entry in objectness_list]).reshape(BATCH, 49)
 cel = nn.CrossEntropyLoss()
 cel_value = cel(p_objectness, objectness)
 
