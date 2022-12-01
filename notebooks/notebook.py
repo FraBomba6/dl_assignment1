@@ -150,7 +150,7 @@ image, target = train_dataset[randint(0, len(train_dataset))]
 custom_utils.with_bounding_box(image, target).show()
 
 # Building training dataloader
-train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH, shuffle=True, num_workers=4, collate_fn=custom_utils.collate_fn)
+train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH, shuffle=True, num_workers=0, collate_fn=custom_utils.collate_fn)
 
 
 # %%
@@ -196,5 +196,26 @@ class ObjectDetectionModel(nn.Module):
         return torch.cat(x, 1)
 
 
+# %%
+network = ObjectDetectionModel()
+network.to(DEVICE)
+
+# %%
+iterator = iter(train_dataloader)
+images, boxes, labels = next(iterator)
+images = images.to(DEVICE)
+
+# %%
+output = network(images)
+
+
+# %%
+class YoloLoss(nn.Module):
+    def __init__(self):
+        super(YoloLoss, self).__init__()
+
+    def forward(self, outputs, boxes, labels):
+        cel = nn.CrossEntropyLoss()
+        cel_value = cel()
 # %%
 # TODO Send network, image and target to device
