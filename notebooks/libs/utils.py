@@ -15,15 +15,17 @@ def collate_fn(batch):
     images = list()
     boxes = list()
     labels = list()
+    objectness = list()
 
     for b in batch:
         images.append(b[0])
         boxes.append(b[1]["boxes"])
         labels.append(b[1]["labels"])
+        objectness.append(b[1]["objectness"])
 
     images = torch.stack(images, dim=0)
 
-    return images, boxes, labels
+    return images, boxes, labels, objectness
 
 
 def with_bounding_box(image, target):
