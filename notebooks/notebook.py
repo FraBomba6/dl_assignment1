@@ -5,6 +5,7 @@ from random import randint
 import libs.utils as custom_utils
 import libs.net_utils as net_utils
 import numpy as np
+import math
 import torch
 import torch.nn as nn
 from torchvision import transforms
@@ -52,9 +53,11 @@ class CustomDataset(Dataset):
         img = self.__load_image(index)
         target = self.__generate_target(index)
         if self.size is not None:
-            return self.__apply_transform(img, target)
-        else:
-            return img, target
+            img, target = self.__apply_transform(img, target) 
+    
+        target['objectness'] = self.__compute_objectness(target['boxes'])
+
+        return img, target
 
     def __apply_transform(self, img, target):
         """
@@ -106,6 +109,19 @@ class CustomDataset(Dataset):
             annotation_json = json.load(fp)
         return [value for key, value in annotation_json.items() if "item" in key]
 
+    def __compute_objectness(self, boxes):
+        bounding_matrices = []
+        target_matrix = np.zeros(49, dtype=np.float32).reshape(7, 7)
+
+        for box in boxes:
+            square_length = np.round(self.size/7, 1)
+            box_centerx, box_centery = np.round((box[2] - box[0]) / 2 + box[0], 1), np.round((box[3] - box[1]) / 2 + box[1], 1)    
+            box_centerx, box_centery = math.floor(box_centerx / square_length), math.floor(box_centery / square_length)
+            target_matrix[box_centery, box_centerx] = 1.0
+            bounding_matrices.append(target_matrix)
+
+        return torch.as_tensor(bounding_matrices, dtype=torch.float32, device=DEVICE)
+
     def __generate_target(self, index):
         """
         Generate the target dict according to Torch specification
@@ -116,12 +132,15 @@ class CustomDataset(Dataset):
         boxes = []
         labels = []
         categories = []
+        
         for annotation in annotations:
             boxes.append(annotation["bounding_box"])
             labels.append(annotation["category_id"])
             categories.append(annotation['category_name'])
+            
         boxes = torch.as_tensor(boxes, dtype=torch.float32, device=DEVICE)
         labels = torch.as_tensor(labels, dtype=torch.int64, device=DEVICE)
+        
         return {
             "boxes": boxes,
             "labels": labels,
@@ -144,6 +163,9 @@ train_dataset.set_size(256)
 
 # random image
 image, target = train_dataset[randint(0, len(train_dataset))]
+transforms.ToPILImage()(target['objectness'][0]).show()
+
+print(target['objectness'])
 
 # check bounding box
 
@@ -219,3 +241,5 @@ class YoloLoss(nn.Module):
         cel_value = cel()
 # %%
 # TODO Send network, image and target to device
+
+# %%
