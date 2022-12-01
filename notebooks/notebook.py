@@ -29,7 +29,7 @@ class CustomDataset(Dataset):
         :param size: optional target size for the image, if None no resizing
         """
         self.root = root
-        self.size = custom_utils.IMG_SIZE 
+        self.size = custom_utils.IMG_SIZE
 
         # Load images filelist
         self.images = list(sorted(os.listdir(os.path.join(root, "images"))))
@@ -236,6 +236,19 @@ p_objectness = torch.stack(p_objectness)
 objectness = torch.stack([entry['matrix'] for entry in objectness_list]).reshape(BATCH, 49)
 cel = nn.CrossEntropyLoss()
 cel_value = cel(p_objectness, objectness)
+
+objects_coords = [entry['coords'] for entry in objectness_list]
+p_batch_coords = []
+for index, objects in enumerate(objects_coords):
+    p_box = p_boxes[index]
+    p_coords = []
+    for box in objects:
+        p_box_coords = []
+        for filter in p_box:
+            p_box_coords.append(filter[box[1]][box[0]])
+        p_coords.append(p_box_coords)
+    p_batch_coords.append(p_coords)
+
 
 # %%
 class YoloLoss(nn.Module):
