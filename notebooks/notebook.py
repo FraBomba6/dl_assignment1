@@ -54,8 +54,8 @@ class CustomDataset(Dataset):
         target = self.__generate_target(index)
         if self.size is not None:
             img, target = self.__apply_transform(img, target) 
-    
-        target['objectness'] = self.__compute_objectness(target['boxes'])
+
+        target["objectness"] = self.__compute_objectness(target['boxes'])
 
         return img, target
 
@@ -110,17 +110,18 @@ class CustomDataset(Dataset):
         return [value for key, value in annotation_json.items() if "item" in key]
 
     def __compute_objectness(self, boxes):
-        bounding_matrices = []
         target_matrix = np.zeros(49, dtype=np.float32).reshape(7, 7)
+        coords = []
 
         for box in boxes:
+            box = box.tolist()
             square_length = np.round(self.size/7, 1)
             box_centerx, box_centery = np.round((box[2] - box[0]) / 2 + box[0], 1), np.round((box[3] - box[1]) / 2 + box[1], 1)    
             box_centerx, box_centery = math.floor(box_centerx / square_length), math.floor(box_centery / square_length)
             target_matrix[box_centery, box_centerx] = 1.0
-            bounding_matrices.append(target_matrix)
+            coords.append((box_centerx, box_centery))
 
-        return torch.as_tensor(bounding_matrices, dtype=torch.float32, device=DEVICE)
+        return {"matrix": torch.as_tensor(target_matrix, dtype=torch.float32, device=DEVICE), "coords": coords}
 
     def __generate_target(self, index):
         """
@@ -163,9 +164,9 @@ train_dataset.set_size(256)
 
 # random image
 image, target = train_dataset[randint(0, len(train_dataset))]
-transforms.ToPILImage()(target['objectness'][0]).show()
+transforms.ToPILImage()(target['objectness']["matrix"]).show()
 
-print(target['objectness'])
+print(target['objectness']["matrix"])
 
 # check bounding box
 
@@ -224,21 +225,51 @@ network.to(DEVICE)
 
 # %%
 iterator = iter(train_dataloader)
-images, boxes, labels = next(iterator)
+images, boxes, labels, objectness_list = next(iterator)
 images = images.to(DEVICE)
 
 # %%
 output = network(images)
 
+# %%
+p_boxes = []
+p_labels = []
+p_objectness = []
+for img in output:
+    p_boxes.append(img[1:5])
+    p_labels.append(img[5:])
+    p_objectness.append(img[0].reshape(49))
+p_boxes = torch.stack(p_boxes)
+p_labels = torch.stack(p_labels)
+p_objectness = torch.stack(p_objectness)
+
+objectness_matrix = [...]
+objectness = torch.stack(objectness_matrix).reshape(BATCH, 49)
+cel = nn.CrossEntropyLoss()
+cel_value = cel(p_objectness, objectness)
 
 # %%
 class YoloLoss(nn.Module):
     def __init__(self):
         super(YoloLoss, self).__init__()
 
-    def forward(self, outputs, boxes, labels):
+    def forward(self, outputs, boxes, labels, objectness):
+        p_boxes = []
+        p_labels = []
+        p_objectness = []
+        for img in outputs:
+            p_boxes.append(img[1:5])
+            p_labels.append(img[5:])
+            p_objectness.append(img[0].reshape(49))
+        p_boxes = torch.stack(p_boxes)
+        p_labels = torch.stack(p_labels)
+        p_objectness = torch.stack(p_objectness)
+
+        objectness = torch.stack(objectness).reshape(BATCH, 49)
         cel = nn.CrossEntropyLoss()
-        cel_value = cel()
+        cel_value = cel(p_objectness, objectness)
+
+
 # %%
 # TODO Send network, image and target to device
 
