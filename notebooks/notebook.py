@@ -194,3 +194,6 @@ class ObjectDetectionModel(nn.Module):
             self.output[2](x)
         ]
         return torch.cat(x, 1)
+
+# %%
+# TODO Send network, image and target to device
