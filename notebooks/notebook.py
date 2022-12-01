@@ -17,6 +17,8 @@ torch.manual_seed(3407)
 
 # Initialize training variables
 BATCH = 16
+LR = 1e10-4
+MOMENTUM = 0.9
 
 
 # %%
@@ -28,7 +30,6 @@ class CustomDataset(Dataset):
         """
         Default initializer
         :param root: path to dataset root
-        :param size: optional target size for the image, if None no resizing
         """
         self.root = root
         self.size = custom_utils.IMG_SIZE
@@ -41,7 +42,7 @@ class CustomDataset(Dataset):
     def __getitem__(self, index):
         """
         Default getter for dataset objects
-        :param index: index of the wanted image + annotation
+        :param index: i of the wanted image + annotation
         :return: image as PIL Image and target dictionary
         """
         img = self.__load_image(index)
@@ -86,7 +87,7 @@ class CustomDataset(Dataset):
     def __load_image(self, index):
         """
         Load an image from the list of available images
-        :param index: index of the wanted image
+        :param index: i of the wanted image
         :return: the image as a PIL.Image object
         """
         image_path = os.path.join(self.root, "images", self.images[index])
@@ -95,7 +96,7 @@ class CustomDataset(Dataset):
     def __load_annotation(self, index):
         """
         Load image annotations from the list of available annotations files
-        :param index: index of the wanted image
+        :param index: i of the wanted image
         :return: the annotations as a dict
         """
         annotation_path = os.path.join(self.root, "annotations", self.annotations[index])
@@ -120,7 +121,7 @@ class CustomDataset(Dataset):
     def __generate_target(self, index):
         """
         Generate the target dict according to Torch specification
-        :param index: index of the wanted annotations
+        :param index: i of the wanted annotations
         :return: target dict
         """
         annotations = self.__load_annotation(index)
@@ -213,51 +214,18 @@ class ObjectDetectionModel(nn.Module):
 
 # %%
 network = ObjectDetectionModel()
-network.to(custom_utils.DEVICE)
-
-# %%
-iterator = iter(train_dataloader)
-images, boxes, labels, objectness_list = next(iterator)
-images = images.to(custom_utils.DEVICE)
-
-# %%
-output = network(images)
-
-# %%
-p_boxes = []
-p_labels = []
-p_objectness = []
-for img in output:
-    p_boxes.append(img[1:5])
-    p_labels.append(img[5:])
-    p_objectness.append(img[0].reshape(49))
-p_boxes = torch.stack(p_boxes)
-p_labels = torch.stack(p_labels)
-p_objectness = torch.stack(p_objectness)
-
-objectness = torch.stack([entry['matrix'] for entry in objectness_list]).reshape(BATCH, 49)
-cel = nn.CrossEntropyLoss()
-cel_value = cel(p_objectness, objectness)
-
-objects_coords = [entry['coords'] for entry in objectness_list]
-p_batch_coords = []
-for index, objects in enumerate(objects_coords):
-    p_box = p_boxes[index]
-    p_coords = []
-    for box in objects:
-        p_box_coords = []
-        for filter in p_box:
-            p_box_coords.append(filter[box[1]][box[0]])
-        p_coords.append(p_box_coords)
-    p_batch_coords.append(p_coords)
 
 
 # %%
 class YoloLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, l1, l2, l3):
         super(YoloLoss, self).__init__()
+        self.l1 = l1
+        self.l2 = l2
+        self.l3 = l3
 
-    def forward(self, outputs, boxes, labels, objectness):
+    def forward(self, outputs, boxes, labels, objectness_list):
+        # Set up predicted values
         p_boxes = []
         p_labels = []
         p_objectness = []
@@ -269,9 +237,35 @@ class YoloLoss(nn.Module):
         p_labels = torch.stack(p_labels)
         p_objectness = torch.stack(p_objectness)
 
-        objectness = torch.stack(objectness).reshape(BATCH, 49)
+        # Compute objectness loss
+        objectness = torch.stack([entry['matrix'] for entry in objectness_list]).reshape(BATCH, 49)
         cel = nn.CrossEntropyLoss()
-        cel_value = cel(p_objectness, objectness)
+        cel_obj_value = cel(p_objectness, objectness)
+
+        # Compute bb loss
+        objects_coords = [entry['coords'] for entry in objectness_list]
+        batch_bb_loss = 0
+        for i, objects in enumerate(objects_coords):
+            p_box = p_boxes[i]
+            for j, box in enumerate(objects):
+                p_box_coords = []
+                for filter in p_box:
+                    p_box_coords.append(filter[box[1]][box[0]])
+                batch_bb_loss += self.__compute_squared_error(torch.cat(p_box_coords), boxes[i][j])
+        batch_bb_loss /= BATCH
+
+        # Compute class loss
+        cel_class_value = 0
+        for i, objects in enumerate(objects_coords):
+            p_label = p_labels[i]
+            for j, box in enumerate(objects):
+                p_label_values = []
+                for filter in p_label:
+                    p_label_values.append(filter[box[1]][box[0]])
+                cel_class_value += cel(p_label_values, labels[i][j])
+        cel_class_value /= BATCH
+
+        return self.l1 * cel_obj_value + self.l2 * batch_bb_loss + self.l3 * cel_class_value
 
     def __compute_squared_error(self, x_pred, x_comp):
 
@@ -279,16 +273,49 @@ class YoloLoss(nn.Module):
         scale = np.vectorize(lambda x: np.round(x / custom_utils.IMG_SIZE, 1))
         x_comp_scaled = scale(x_comp)
 
-        components = [(x - x_cap) for x, x_cap in zip(x_comp_scaled, x_pred)]
+        components = [(x - x_cap)**2 for x, x_cap in zip(x_comp_scaled, x_pred)]
 
         return sum(components)
-        
-
-
-        
 
 
 # %%
-# TODO Send network, image and target to device
+loss_fn = YoloLoss(1, 5, 5)
+optimizer = torch.optim.SGD(network.parameters(), lr=LR, momentum=MOMENTUM)
+
+
+def train(num_epochs):
+    best_accuracy = 0.0
+
+    network.to(custom_utils.DEVICE)
+
+    for epoch in range(num_epochs):
+        running_loss = 0.
+        last_loss = 0.
+
+        for i, data in enumerate(train_dataloader):
+            images, boxes, labels, objectness = data
+            images = images.to(custom_utils.DEVICE)
+            boxes = boxes.to(custom_utils.DEVICE)
+            labels = labels.to(custom_utils.DEVICE)
+            objectness = objectness.to(custom_utils.DEVICE)
+
+            optimizer.zero_grad()
+
+            outputs = network(images)
+
+            loss = loss_fn(outputs, boxes, labels, objectness)
+            loss.backward()
+
+            optimizer.step()
+
+            running_loss += loss.item()  # extract the loss value
+            if i % 1000 == 999:
+                # print every 1000 (twice per epoch)
+                print('[%d, %5d] loss: %.3f' %
+                      (epoch + 1, i + 1, running_loss / 1000))
+                # zero the loss
+                running_loss = 0.0
+
 
 # %%
+train(3)
