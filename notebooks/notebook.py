@@ -12,6 +12,8 @@ from torchvision import transforms
 from torch.utils.data import Dataset
 from PIL import Image  # module
 
+# Set torch seed
+torch.manual_seed(3407)
 
 # Initialize training variables
 BATCH = 16
