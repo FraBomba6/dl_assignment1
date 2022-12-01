@@ -273,6 +273,20 @@ class YoloLoss(nn.Module):
         cel = nn.CrossEntropyLoss()
         cel_value = cel(p_objectness, objectness)
 
+    def __compute_squared_error(self, x_pred, x_comp):
+
+        # v2 is scaled from image size to 1
+        scale = np.vectorize(lambda x: np.round(x / custom_utils.IMG_SIZE, 1))
+        x_comp_scaled = scale(x_comp)
+
+        components = [(x - x_cap) for x, x_cap in zip(x_comp_scaled, x_pred)]
+
+        return sum(components)
+        
+
+
+        
+
 
 # %%
 # TODO Send network, image and target to device
