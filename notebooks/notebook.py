@@ -12,11 +12,6 @@ from torchvision import transforms
 from torch.utils.data import Dataset
 from PIL import Image  # module
 
-# Defining project root in order to avoid relative paths
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-# Initializing torch device according to hardware available
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Initialize training variables
 BATCH = 16
@@ -27,22 +22,19 @@ class CustomDataset(Dataset):
     """
     Class that represents a dataset object to use as input on a CNN
     """
-    def __init__(self, root, size=None):
+    def __init__(self, root):
         """
         Default initializer
         :param root: path to dataset root
         :param size: optional target size for the image, if None no resizing
         """
         self.root = root
-        self.size = size
+        self.size = custom_utils.IMG_SIZE 
 
         # Load images filelist
         self.images = list(sorted(os.listdir(os.path.join(root, "images"))))
         # Load annotations filelist
         self.annotations = list(sorted(os.listdir(os.path.join(root, "annotations"))))
-
-    def set_size(self, size):
-        self.size = size
 
     def __getitem__(self, index):
         """
@@ -87,7 +79,7 @@ class CustomDataset(Dataset):
             x_max = int(np.round(box[2] * x_scale))
             y_max = int(np.round(box[3] * y_scale))
             scaled_boxes.append([x, y, x_max, y_max])
-        return torch.as_tensor(scaled_boxes, dtype=torch.float32, device=DEVICE)
+        return torch.as_tensor(scaled_boxes, dtype=torch.float32, device=custom_utils.DEVICE)
 
     def __load_image(self, index):
         """
@@ -121,7 +113,7 @@ class CustomDataset(Dataset):
             target_matrix[box_centery, box_centerx] = 1.0
             coords.append((box_centerx, box_centery))
 
-        return {"matrix": torch.as_tensor(target_matrix, dtype=torch.float32, device=DEVICE), "coords": coords}
+        return {"matrix": torch.as_tensor(target_matrix, dtype=torch.float32, device=custom_utils.DEVICE), "coords": coords}
 
     def __generate_target(self, index):
         """
@@ -139,14 +131,14 @@ class CustomDataset(Dataset):
             labels.append(annotation["category_id"])
             categories.append(annotation['category_name'])
             
-        boxes = torch.as_tensor(boxes, dtype=torch.float32, device=DEVICE)
-        labels = torch.as_tensor(labels, dtype=torch.int64, device=DEVICE)
+        boxes = torch.as_tensor(boxes, dtype=torch.float32, device=custom_utils.DEVICE)
+        labels = torch.as_tensor(labels, dtype=torch.int64, device=custom_utils.DEVICE)
         
         return {
             "boxes": boxes,
             "labels": labels,
             "categories": categories,
-            "image_id": torch.tensor([index], device=DEVICE)
+            "image_id": torch.tensor([index], device=custom_utils.DEVICE)
         }
 
     def __len__(self):
@@ -156,11 +148,9 @@ class CustomDataset(Dataset):
 # %%
 # Loading training dataset 
 
-train_dataset = CustomDataset(os.path.join(PROJECT_ROOT, "data", "assignment_1", "train"))
+train_dataset = CustomDataset(os.path.join(custom_utils.PROJECT_ROOT, "data", "assignment_1", "train"))
 
 # plot_size_distribution(dataset)
-
-train_dataset.set_size(256)
 
 # random image
 image, target = train_dataset[randint(0, len(train_dataset))]
@@ -221,12 +211,12 @@ class ObjectDetectionModel(nn.Module):
 
 # %%
 network = ObjectDetectionModel()
-network.to(DEVICE)
+network.to(custom_utils.DEVICE)
 
 # %%
 iterator = iter(train_dataloader)
 images, boxes, labels, objectness_list = next(iterator)
-images = images.to(DEVICE)
+images = images.to(custom_utils.DEVICE)
 
 # %%
 output = network(images)

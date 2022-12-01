@@ -1,9 +1,18 @@
+import os
 import torch
 import torchvision
 from torchvision import transforms
 from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
+
+# Defining project root in order to avoid relative paths
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Initializing torch device according to hardware available
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+IMG_SIZE = 256
 
 
 def collate_fn(batch):
