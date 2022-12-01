@@ -151,3 +151,94 @@ custom_utils.with_bounding_box(image, target).show()
 
 # Building training dataloader
 train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH, shuffle=True, num_workers=4, collate_fn=custom_utils.collate_fn)
+
+
+# %%
+def build_low_level_feat(in_channels, out_channels, conv_k_size, pool_k_size):
+    layers = nn.Sequential()
+    layers.append(nn.Conv2d(in_channels, out_channels, kernel_size=conv_k_size, padding=1))
+    layers.append(nn.ReLU())
+    layers.append(nn.Conv2d(out_channels, out_channels, kernel_size=conv_k_size, padding=1))
+    layers.append(nn.ReLU())
+    layers.append(nn.Conv2d(out_channels, out_channels, kernel_size=conv_k_size, padding=1))
+    layers.append(nn.BatchNorm2d(out_channels))
+    layers.append(nn.ReLU())
+    layers.append(nn.MaxPool2d(kernel_size=pool_k_size, stride=pool_k_size))
+    return layers
+
+
+def build_inception_components(in_channels, out_channels):
+    pool = nn.Sequential(
+        nn.MaxPool2d(3, 1, padding=1),
+        nn.Conv2d(in_channels, out_channels, kernel_size=1)
+    ).to(DEVICE)
+    conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1).to(DEVICE)
+    conv2 = nn.Sequential(
+        nn.Conv2d(in_channels, out_channels * 2, kernel_size=1),
+        nn.Conv2d(out_channels * 2, out_channels * 2, kernel_size=3, padding=1)
+    ).to(DEVICE)
+    conv3 = nn.Sequential(
+        nn.Conv2d(in_channels, out_channels * 2, kernel_size=1),
+        nn.Conv2d(out_channels * 2, out_channels * 2, kernel_size=5, padding=2)
+    ).to(DEVICE)
+    return pool, conv1, conv2, conv3
+
+
+def build_output_components(in_channels):
+    confidence = nn.Sequential(
+        nn.Conv2d(in_channels, 1, 1),
+        nn.Sigmoid()
+    ).to(DEVICE)
+    box = nn.Sequential(
+        nn.Conv2d(in_channels, 4, 1),
+        nn.Conv2d(4, 4, 9, padding=4),
+        nn.Conv2d(4, 4, 1),
+        nn.ReLU()
+    ).to(DEVICE)
+    classes = nn.Sequential(
+        nn.Conv2d(in_channels, 12, 1),
+        nn.Softmax()
+    ).to(DEVICE)
+    return confidence, box, classes
+
+
+class ObjectDetectionModel(nn.Module):
+    def __init__(self):
+        super(ObjectDetectionModel, self).__init__()
+        self.block1 = build_low_level_feat(3, 32, 5, 4)
+        self.block2 = build_low_level_feat(32, 64, 3, 2)
+        self.inception1 = build_inception_components(64, 128)
+        self.inception2 = build_inception_components(128*6, 128*12)
+        self.batch_after_inception2 = nn.BatchNorm2d(128*12*6)
+        self.activation_after_inception = nn.ReLU()
+        self.pool_after_inception = nn.MaxPool2d(2, 2)
+        self.output = build_output_components(128*12*6)
+
+    def forward(self, x):
+        x = self.block1(x)
+        x = self.block2(x)
+        x = [
+            self.inception1[0](x),
+            self.inception1[1](x),
+            self.inception1[2](x),
+            self.inception1[3](x)
+        ]
+        x = torch.cat(x, 1)
+        x = self.activation_after_inception(x)
+        x = self.pool_after_inception(x)
+        x = [
+            self.inception2[0](x),
+            self.inception2[1](x),
+            self.inception2[2](x),
+            self.inception2[3](x)
+        ]
+        x = torch.cat(x, 1)
+        x = self.batch_after_inception2(x)
+        x = self.activation_after_inception(x)
+        x = self.pool_after_inception(x)
+        x = [
+            self.output[0](x),
+            self.output[1](x),
+            self.output[2](x)
+        ]
+        return torch.cat(x, 1)
