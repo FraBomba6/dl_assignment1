@@ -17,7 +17,7 @@ torch.manual_seed(3407)
 
 # Initialize training variables
 BATCH = 16
-LR = 1e10-4
+LR = 0.0001
 MOMENTUM = 0.9
 
 
@@ -250,8 +250,9 @@ class YoloLoss(nn.Module):
             for j, box in enumerate(objects):
                 p_box_coords = []
                 for filter in p_box:
-                    p_box_coords.append(filter[box[1]][box[0]])
-                batch_bb_loss += self.__compute_squared_error(torch.cat(p_box_coords), boxes[i][j])
+                    p_box_coords.append(filter[box[1]][box[0]].item())
+                p_box_coords = torch.tensor(p_box_coords, dtype=torch.float32, device=custom_utils.DEVICE)
+                batch_bb_loss += self.__compute_squared_error(p_box_coords, boxes[i][j]).item()
         batch_bb_loss /= BATCH
 
         # Compute class loss
@@ -262,12 +263,15 @@ class YoloLoss(nn.Module):
                 p_label_values = []
                 for filter in p_label:
                     p_label_values.append(filter[box[1]][box[0]])
-                cel_class_value += cel(p_label_values, labels[i][j])
+                p_label_values = torch.tensor(p_label_values, dtype=torch.float32, device=custom_utils.DEVICE)
+                cel_class_value += cel(p_label_values, labels[i][j]-1)
         cel_class_value /= BATCH
 
         return self.l1 * cel_obj_value + self.l2 * batch_bb_loss + self.l3 * cel_class_value
 
     def __compute_squared_error(self, x_pred, x_comp):
+        x_pred = x_pred.cpu()
+        x_comp = x_comp.cpu()
 
         # v2 is scaled from image size to 1
         scale = np.vectorize(lambda x: np.round(x / custom_utils.IMG_SIZE, 1))
@@ -295,9 +299,6 @@ def train(num_epochs):
         for i, data in enumerate(train_dataloader):
             images, boxes, labels, objectness = data
             images = images.to(custom_utils.DEVICE)
-            boxes = boxes.to(custom_utils.DEVICE)
-            labels = labels.to(custom_utils.DEVICE)
-            objectness = objectness.to(custom_utils.DEVICE)
 
             optimizer.zero_grad()
 

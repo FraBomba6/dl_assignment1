@@ -64,7 +64,7 @@ def build_output_components(in_channels):
         nn.ReLU()
     ).to(DEVICE)
     classes = nn.Sequential(
-        nn.Conv2d(in_channels, 12, 1),
+        nn.Conv2d(in_channels, 13, 1),
         nn.Softmax(dim=1)
     ).to(DEVICE)
     return confidence, box, classes
