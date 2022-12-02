@@ -8,6 +8,7 @@ import numpy as np
 import math
 import torch
 import torch.nn as nn
+from torch.nn import functional as f
 from torchvision import transforms
 from torch.utils.data import Dataset
 from PIL import Image  # module
@@ -17,7 +18,7 @@ torch.manual_seed(3407)
 
 # Initialize training variables
 BATCH = 16
-LR = 0.0001
+LR = 0.001
 MOMENTUM = 0.9
 
 
@@ -156,25 +157,26 @@ train_dataset = CustomDataset(os.path.join(custom_utils.PROJECT_ROOT, "data", "a
 # plot_size_distribution(dataset)
 
 # random image
-image, target = train_dataset[randint(0, len(train_dataset))]
+# image, target = train_dataset[randint(0, len(train_dataset))]
 # transforms.ToPILImage()(target['objectness']["matrix"]).show()
 
-print(target['objectness']["matrix"])
+# print(target['objectness']["matrix"])
 
 # check bounding box
 
 # custom_utils.with_bounding_box(image, target).show()
 
 # Building training dataloader
-train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH, shuffle=True, num_workers=0, collate_fn=custom_utils.collate_fn)
+train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH, shuffle=True, collate_fn=custom_utils.collate_fn)
 
 
 # %%
 class ObjectDetectionModel(nn.Module):
     def __init__(self):
         super(ObjectDetectionModel, self).__init__()
-        self.block1 = net_utils.build_low_level_feat(3, 32, 5, 4)
-        self.block2 = net_utils.build_low_level_feat(32, 64, 3, 2)
+        self.block1 = net_utils.build_low_level_feat(3, 16, 5, 4)
+        self.block2 = net_utils.build_low_level_feat(16, 32, 3, 2)
+        self.block3 = net_utils.build_low_level_feat(32, 64, 3, 2)
         self.inception1 = net_utils.build_inception_components(64, 128)
         self.inception2 = net_utils.build_inception_components(128*6, 128*12)
         self.batch_after_inception2 = nn.BatchNorm2d(128*12*6)
@@ -185,6 +187,7 @@ class ObjectDetectionModel(nn.Module):
     def forward(self, x):
         x = self.block1(x)
         x = self.block2(x)
+        x = self.block3(x)
         x = [
             self.inception1[0](x),
             self.inception1[1](x),
@@ -239,8 +242,7 @@ class YoloLoss(nn.Module):
 
         # Compute objectness loss
         objectness = torch.stack([entry['matrix'] for entry in objectness_list]).reshape(BATCH, 49)
-        cel = nn.CrossEntropyLoss()
-        cel_obj_value = cel(p_objectness, objectness)
+        cel_obj_value = f.cross_entropy(p_objectness, objectness)
 
         # Compute bb loss
         objects_coords = [entry['coords'] for entry in objectness_list]
@@ -252,7 +254,7 @@ class YoloLoss(nn.Module):
                 for filter in p_box:
                     p_box_coords.append(filter[box[1]][box[0]].item())
                 p_box_coords = torch.tensor(p_box_coords, dtype=torch.float32, device=custom_utils.DEVICE)
-                batch_bb_loss += self.__compute_squared_error(p_box_coords, boxes[i][j]).item()
+                batch_bb_loss += self.__compute_squared_error(p_box_coords, boxes[i][j])
         batch_bb_loss /= BATCH
 
         # Compute class loss
@@ -264,10 +266,10 @@ class YoloLoss(nn.Module):
                 for filter in p_label:
                     p_label_values.append(filter[box[1]][box[0]])
                 p_label_values = torch.tensor(p_label_values, dtype=torch.float32, device=custom_utils.DEVICE)
-                cel_class_value += cel(p_label_values, labels[i][j]-1)
+                cel_class_value += f.cross_entropy(p_label_values, labels[i][j]-1)
         cel_class_value /= BATCH
 
-        return self.l1 * cel_obj_value + self.l2 * batch_bb_loss + self.l3 * cel_class_value
+        return cel_obj_value + batch_bb_loss + cel_class_value
 
     def __compute_squared_error(self, x_pred, x_comp):
         x_pred = x_pred.cpu()
@@ -310,10 +312,10 @@ def train(num_epochs):
             optimizer.step()
 
             running_loss += loss.item()  # extract the loss value
-            if i % 1000 == 999:
+            if i % 10 == 9:
                 # print every 1000 (twice per epoch)
                 print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, i + 1, running_loss / 1000))
+                      (epoch + 1, i + 1, running_loss / 10))
                 # zero the loss
                 running_loss = 0.0
 
