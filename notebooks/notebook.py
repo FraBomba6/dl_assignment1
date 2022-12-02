@@ -2,6 +2,7 @@
 import json
 import os
 from random import randint
+from tqdm import tqdm
 import libs.utils as custom_utils
 import libs.net_utils as net_utils
 import numpy as np
@@ -175,8 +176,7 @@ class ObjectDetectionModel(nn.Module):
     def __init__(self):
         super(ObjectDetectionModel, self).__init__()
         self.block1 = net_utils.build_low_level_feat(3, 16, 5, 4)
-        self.block2 = net_utils.build_low_level_feat(16, 32, 3, 2)
-        self.block3 = net_utils.build_low_level_feat(32, 64, 3, 2)
+        self.block2 = net_utils.build_low_level_feat(16, 64, 3, 2)
         self.inception1 = net_utils.build_inception_components(64, 128)
         self.inception2 = net_utils.build_inception_components(128*6, 128*12)
         self.batch_after_inception2 = nn.BatchNorm2d(128*12*6)
@@ -187,7 +187,6 @@ class ObjectDetectionModel(nn.Module):
     def forward(self, x):
         x = self.block1(x)
         x = self.block2(x)
-        x = self.block3(x)
         x = [
             self.inception1[0](x),
             self.inception1[1](x),
@@ -242,7 +241,7 @@ class YoloLoss(nn.Module):
 
         # Compute objectness loss
         objectness = torch.stack([entry['matrix'] for entry in objectness_list]).reshape(BATCH, 49)
-        cel_obj_value = f.cross_entropy(p_objectness, objectness)
+        cel_obj_value = f.binary_cross_entropy(p_objectness, objectness)
 
         # Compute bb loss
         objects_coords = [entry['coords'] for entry in objectness_list]
@@ -254,7 +253,8 @@ class YoloLoss(nn.Module):
                 for filter in p_box:
                     p_box_coords.append(filter[box[1]][box[0]].item())
                 p_box_coords = torch.tensor(p_box_coords, dtype=torch.float32, device=custom_utils.DEVICE)
-                batch_bb_loss += self.__compute_squared_error(p_box_coords, boxes[i][j])
+                target = torch.tensor(self.__compute_squared_error(boxes[i][j]), dtype=torch.float32, device=custom_utils.DEVICE)
+                batch_bb_loss += f.mse_loss(p_box_coords, target)
         batch_bb_loss /= BATCH
 
         # Compute class loss
@@ -271,17 +271,14 @@ class YoloLoss(nn.Module):
 
         return cel_obj_value + batch_bb_loss + cel_class_value
 
-    def __compute_squared_error(self, x_pred, x_comp):
-        x_pred = x_pred.cpu()
+    def __compute_squared_error(self, x_comp):
         x_comp = x_comp.cpu()
 
         # v2 is scaled from image size to 1
         scale = np.vectorize(lambda x: np.round(x / custom_utils.IMG_SIZE, 1))
         x_comp_scaled = scale(x_comp)
 
-        components = [(x - x_cap)**2 for x, x_cap in zip(x_comp_scaled, x_pred)]
-
-        return sum(components)
+        return x_comp_scaled
 
 
 # %%
@@ -296,9 +293,8 @@ def train(num_epochs):
 
     for epoch in range(num_epochs):
         running_loss = 0.
-        last_loss = 0.
 
-        for i, data in enumerate(train_dataloader):
+        for i, data in enumerate(tqdm(train_dataloader)):
             images, boxes, labels, objectness = data
             images = images.to(custom_utils.DEVICE)
 
