@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
 
 def build_low_level_feat(in_channels, out_channels, conv_k_size, pool_k_size):
