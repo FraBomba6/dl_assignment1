@@ -19,7 +19,7 @@ torch.manual_seed(3407)
 
 # Initialize training variables
 BATCH = 16
-LR = 0.001
+LR = 0.01
 MOMENTUM = 0.9
 
 
@@ -173,39 +173,46 @@ train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH, 
 
 # %%
 class ObjectDetectionModel(nn.Module):
-    def __init__(self):
+    def __init__(self, num_convolutions: int, out_filter: int, conv_k_sizes: list, pool_k_sizes: list):
         super(ObjectDetectionModel, self).__init__()
-        self.block1 = net_utils.build_low_level_feat(3, 16, 5, 4)
-        self.block2 = net_utils.build_low_level_feat(16, 64, 3, 2)
-        self.inception1 = net_utils.build_inception_components(64, 128)
-        self.inception2 = net_utils.build_inception_components(128*6, 128*12)
-        self.batch_after_inception2 = nn.BatchNorm2d(128*12*6)
-        self.activation_after_inception = nn.ReLU()
-        self.pool_after_inception = nn.MaxPool2d(2, 2)
-        self.output = net_utils.build_output_components(128*12*6)
+        if len(conv_k_sizes) != len(pool_k_sizes) or len(conv_k_sizes) != num_convolutions or len(pool_k_sizes) != num_convolutions:
+            raise RuntimeError("Mismatch in length of arguments")
+        in_filter = 3
+        self.conv_blocks = nn.Sequential()
+        for i in range(num_convolutions):
+            block = net_utils.build_low_level_feat(in_filter, out_filter, conv_k_sizes[i], pool_k_sizes[i])
+            self.conv_blocks.append(block)
+            tmp = in_filter
+            in_filter = out_filter
+            out_filter = tmp * 2
+        # self.inception1 = net_utils.build_inception_components(64, 128)
+        # self.inception2 = net_utils.build_inception_components(128*6, 128*12)
+        # self.batch_after_inception2 = nn.BatchNorm2d(128*12*6)
+        # self.activation_after_inception = nn.ReLU()
+        # self.pool_after_inception = nn.MaxPool2d(2, 2)
+        self.output = net_utils.build_output_components(in_filter)
 
     def forward(self, x):
-        x = self.block1(x)
-        x = self.block2(x)
-        x = [
-            self.inception1[0](x),
-            self.inception1[1](x),
-            self.inception1[2](x),
-            self.inception1[3](x)
-        ]
-        x = torch.cat(x, 1)
-        x = self.activation_after_inception(x)
-        x = self.pool_after_inception(x)
-        x = [
-            self.inception2[0](x),
-            self.inception2[1](x),
-            self.inception2[2](x),
-            self.inception2[3](x)
-        ]
-        x = torch.cat(x, 1)
-        x = self.batch_after_inception2(x)
-        x = self.activation_after_inception(x)
-        x = self.pool_after_inception(x)
+        x = self.conv_blocks(x)
+        # x = [
+        #     self.inception1[0](x),
+        #     self.inception1[1](x),
+        #     self.inception1[2](x),
+        #     self.inception1[3](x)
+        # ]
+        # x = torch.cat(x, 1)
+        # x = self.activation_after_inception(x)
+        # x = self.pool_after_inception(x)
+        # x = [
+        #     self.inception2[0](x),
+        #     self.inception2[1](x),
+        #     self.inception2[2](x),
+        #     self.inception2[3](x)
+        # ]
+        # x = torch.cat(x, 1)
+        # x = self.batch_after_inception2(x)
+        # x = self.activation_after_inception(x)
+        # x = self.pool_after_inception(x)
         x = [
             self.output[0](x),
             self.output[1](x),
@@ -215,7 +222,13 @@ class ObjectDetectionModel(nn.Module):
 
 
 # %%
-network = ObjectDetectionModel()
+# 5, 3
+# 4, 2
+num_convolutions = 5
+out_filter = 32
+conv_k_sizes = [5, 3, 3, 3, 3]
+pool_k_sizes = [4, 2, 2, 2, 2]
+network = ObjectDetectionModel(num_convolutions, out_filter, conv_k_sizes, pool_k_sizes)
 
 
 # %%
