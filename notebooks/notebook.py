@@ -282,7 +282,7 @@ class YoloLoss(nn.Module):
                 cel_class_value += f.cross_entropy(p_label_values, labels[i][j]-1)
         cel_class_value /= BATCH
 
-        return cel_obj_value + batch_bb_loss + cel_class_value
+        return cel_obj_value + batch_bb_loss + cel_class_value, (cel_obj_value, batch_bb_loss, cel_class_value)
 
     def __compute_squared_error(self, x_comp):
         x_comp = x_comp.cpu()
@@ -306,6 +306,9 @@ def train(num_epochs):
 
     for epoch in range(num_epochs):
         running_loss = 0.
+        running_obj = 0.
+        running_bb = 0.
+        running_class = 0.
 
         for i, data in enumerate(tqdm(train_dataloader)):
             images, boxes, labels, objectness = data
@@ -315,16 +318,29 @@ def train(num_epochs):
 
             outputs = network(images)
 
-            loss = loss_fn(outputs, boxes, labels, objectness)
+            loss_fn_return = loss_fn(outputs, boxes, labels, objectness)
+            loss = loss_fn_return[0]
             loss.backward()
 
             optimizer.step()
 
             running_loss += loss.item()  # extract the loss value
+            running_obj += loss_fn_return[1][0]
+            running_bb += loss_fn_return[1][1]
+            running_class += loss_fn_return[1][2]
             if i % 10 == 9:
                 # print every 1000 (twice per epoch)
-                print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, i + 1, running_loss / 10))
+                print(
+                    '[%d, %5d] loss: %.3f - obj: %.3f | bb: %.3f | class: %.3f' %
+                    (
+                        epoch + 1,
+                        i + 1,
+                        running_loss / 10,
+                        running_obj / 10,
+                        running_bb / 10,
+                        running_class / 10
+                    )
+                )
                 # zero the loss
                 running_loss = 0.0
 
