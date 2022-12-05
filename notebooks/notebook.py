@@ -13,9 +13,9 @@ from torch.nn import functional as f
 from torchvision import transforms
 from torch.utils.data import Dataset
 from PIL import Image  # module
-from rich import Console
+import rich
 
-console = Console()
+console = rich.Console()
 console.log("Initializing model parameters")
 # Set torch seed
 torch.manual_seed(3407)
