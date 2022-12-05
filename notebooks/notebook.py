@@ -306,9 +306,6 @@ def train(num_epochs):
 
     for epoch in range(num_epochs):
         running_loss = 0.
-        running_obj = 0.
-        running_bb = 0.
-        running_class = 0.
 
         for i, data in enumerate(tqdm(train_dataloader)):
             images, boxes, labels, objectness = data
@@ -325,9 +322,9 @@ def train(num_epochs):
             optimizer.step()
 
             running_loss += loss.item()  # extract the loss value
-            running_obj += loss_fn_return[1][0]
-            running_bb += loss_fn_return[1][1]
-            running_class += loss_fn_return[1][2]
+            obj = loss_fn_return[1][0]
+            bb = loss_fn_return[1][1]
+            cla = loss_fn_return[1][2]
             if i % 10 == 9:
                 # print every 1000 (twice per epoch)
                 print(
@@ -336,9 +333,9 @@ def train(num_epochs):
                         epoch + 1,
                         i + 1,
                         running_loss / 10,
-                        running_obj / 10,
-                        running_bb / 10,
-                        running_class / 10
+                        obj,
+                        bb,
+                        cla
                     )
                 )
                 # zero the loss
