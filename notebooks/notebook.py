@@ -19,7 +19,7 @@ torch.manual_seed(3407)
 
 # Initialize training variables
 BATCH = 16
-LR = 0.01
+LR = 0.0001
 MOMENTUM = 0.9
 
 
@@ -183,8 +183,8 @@ class ObjectDetectionModel(nn.Module):
             block = net_utils.build_low_level_feat(in_filter, out_filter, conv_k_sizes[i], pool_k_sizes[i])
             self.conv_blocks.append(block)
             tmp = in_filter
-            in_filter = out_filter
-            out_filter = tmp * 2
+            in_filter = out_filter * 2
+            out_filter = tmp * 4
         # self.inception1 = net_utils.build_inception_components(64, 128)
         # self.inception2 = net_utils.build_inception_components(128*6, 128*12)
         # self.batch_after_inception2 = nn.BatchNorm2d(128*12*6)
@@ -222,10 +222,8 @@ class ObjectDetectionModel(nn.Module):
 
 
 # %%
-# 5, 3
-# 4, 2
 num_convolutions = 5
-out_filter = 32
+out_filter = 16
 conv_k_sizes = [5, 3, 3, 3, 3]
 pool_k_sizes = [4, 2, 2, 2, 2]
 network = ObjectDetectionModel(num_convolutions, out_filter, conv_k_sizes, pool_k_sizes)
@@ -240,6 +238,7 @@ class YoloLoss(nn.Module):
         self.l3 = l3
 
     def forward(self, outputs, boxes, labels, objectness_list):
+        current_batch_size = outputs.size()[0]
         # Set up predicted values
         p_boxes = []
         p_labels = []
@@ -251,24 +250,7 @@ class YoloLoss(nn.Module):
         p_boxes = torch.stack(p_boxes)
         p_labels = torch.stack(p_labels)
         p_objectness = torch.stack(p_objectness)
-
-        # Compute objectness loss
-        objectness = torch.stack([entry['matrix'] for entry in objectness_list]).reshape(BATCH, 49)
-        cel_obj_value = f.binary_cross_entropy(p_objectness, objectness)
-
-        # Compute bb loss
         objects_coords = [entry['coords'] for entry in objectness_list]
-        batch_bb_loss = 0
-        for i, objects in enumerate(objects_coords):
-            p_box = p_boxes[i]
-            for j, box in enumerate(objects):
-                p_box_coords = []
-                for filter in p_box:
-                    p_box_coords.append(filter[box[1]][box[0]].item())
-                p_box_coords = torch.tensor(p_box_coords, dtype=torch.float32, device=custom_utils.DEVICE)
-                target = torch.tensor(self.__compute_squared_error(boxes[i][j]), dtype=torch.float32, device=custom_utils.DEVICE)
-                batch_bb_loss += f.mse_loss(p_box_coords, target)
-        batch_bb_loss /= BATCH
 
         # Compute class loss
         cel_class_value = 0
@@ -279,8 +261,25 @@ class YoloLoss(nn.Module):
                 for filter in p_label:
                     p_label_values.append(filter[box[1]][box[0]])
                 p_label_values = torch.tensor(p_label_values, dtype=torch.float32, device=custom_utils.DEVICE)
-                cel_class_value += f.cross_entropy(p_label_values, labels[i][j]-1)
-        cel_class_value /= BATCH
+                cel_class_value += f.cross_entropy(p_label_values, labels[i][j] - 1)
+        cel_class_value /= current_batch_size
+
+        # Compute objectness loss
+        objectness = torch.stack([entry['matrix'] for entry in objectness_list]).reshape(current_batch_size, 49)
+        cel_obj_value = f.binary_cross_entropy(p_objectness, objectness)
+
+        # Compute bb loss
+        batch_bb_loss = 0
+        for i, objects in enumerate(objects_coords):
+            p_box = p_boxes[i]
+            for j, box in enumerate(objects):
+                p_box_coords = []
+                for filter in p_box:
+                    p_box_coords.append(filter[box[1]][box[0]].item())
+                p_box_coords = torch.tensor(p_box_coords, dtype=torch.float32, device=custom_utils.DEVICE)
+                target = torch.tensor(self.__compute_squared_error(boxes[i][j]), dtype=torch.float32, device=custom_utils.DEVICE)
+                batch_bb_loss += f.mse_loss(p_box_coords, target)
+        batch_bb_loss /= current_batch_size
 
         return cel_obj_value + batch_bb_loss + cel_class_value, (cel_obj_value, batch_bb_loss, cel_class_value)
 
