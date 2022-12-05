@@ -22,7 +22,7 @@ torch.manual_seed(3407)
 
 # Initialize training variables
 BATCH = 16
-LR = 0.0001
+LR = 0.01
 MOMENTUM = 0.9
 
 
@@ -187,26 +187,26 @@ class ObjectDetectionModel(nn.Module):
         for i in range(num_convolutions):
             block = net_utils.build_low_level_feat(in_filter, out_filter, conv_k_sizes[i], pool_k_sizes[i])
             self.conv_blocks.append(block)
-            in_filter = out_filter * 2
-            out_filter = in_filter * 2
-        # self.inception1 = net_utils.build_inception_components(64, 128)
+            in_filter = out_filter
+            out_filter *= 2
+        self.inception1 = net_utils.build_inception_components(in_filter, out_filter)
         # self.inception2 = net_utils.build_inception_components(128*6, 128*12)
-        # self.batch_after_inception2 = nn.BatchNorm2d(128*12*6)
-        # self.activation_after_inception = nn.ReLU()
-        # self.pool_after_inception = nn.MaxPool2d(2, 2)
-        self.output = net_utils.build_output_components(in_filter)
+        self.batch_after_inception = nn.BatchNorm2d(out_filter*6)
+        self.activation_after_inception = nn.ReLU()
+        self.pool_after_inception = nn.MaxPool2d(2, 2)
+        self.output = net_utils.build_output_components(out_filter*6)
 
     def forward(self, x):
         x = self.conv_blocks(x)
-        # x = [
-        #     self.inception1[0](x),
-        #     self.inception1[1](x),
-        #     self.inception1[2](x),
-        #     self.inception1[3](x)
-        # ]
-        # x = torch.cat(x, 1)
-        # x = self.activation_after_inception(x)
-        # x = self.pool_after_inception(x)
+        x = [
+            self.inception1[0](x),
+            self.inception1[1](x),
+            self.inception1[2](x),
+            self.inception1[3](x)
+        ]
+        x = torch.cat(x, 1)
+        x = self.activation_after_inception(x)
+        x = self.pool_after_inception(x)
         # x = [
         #     self.inception2[0](x),
         #     self.inception2[1](x),
@@ -214,7 +214,7 @@ class ObjectDetectionModel(nn.Module):
         #     self.inception2[3](x)
         # ]
         # x = torch.cat(x, 1)
-        # x = self.batch_after_inception2(x)
+        x = self.batch_after_inception(x)
         # x = self.activation_after_inception(x)
         # x = self.pool_after_inception(x)
         x = [
@@ -227,10 +227,10 @@ class ObjectDetectionModel(nn.Module):
 
 # %%
 console.log("Creating model")
-num_convolutions = 5
+num_convolutions = 3
 out_filter = 16
-conv_k_sizes = [5, 3, 3, 3, 3]
-pool_k_sizes = [4, 2, 2, 2, 2]
+conv_k_sizes = [5, 5, 3]
+pool_k_sizes = [4, 2, 2]
 network = ObjectDetectionModel(num_convolutions, out_filter, conv_k_sizes, pool_k_sizes)
 
 

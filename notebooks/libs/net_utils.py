@@ -17,10 +17,7 @@ def build_low_level_feat(in_channels, out_channels, conv_k_size, pool_k_size):
     layers.append(nn.ReLU())
     layers.append(nn.Conv2d(out_channels, out_channels, kernel_size=conv_k_size, padding=1))
     layers.append(nn.ReLU())
-    layers.append(nn.Conv2d(out_channels, out_channels*2, kernel_size=conv_k_size, padding=1))
-    layers.append(nn.ReLU())
-    layers.append(nn.Conv2d(out_channels*2, out_channels*2, kernel_size=conv_k_size, padding=1))
-    layers.append(nn.BatchNorm2d(out_channels*2))
+    layers.append(nn.BatchNorm2d(out_channels))
     layers.append(nn.ReLU())
     layers.append(nn.MaxPool2d(kernel_size=pool_k_size, stride=pool_k_size))
     return layers
