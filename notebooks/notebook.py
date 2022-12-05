@@ -13,7 +13,10 @@ from torch.nn import functional as f
 from torchvision import transforms
 from torch.utils.data import Dataset
 from PIL import Image  # module
+from rich import Console
 
+console = Console()
+console.log("Initializing model parameters")
 # Set torch seed
 torch.manual_seed(3407)
 
@@ -151,6 +154,7 @@ class CustomDataset(Dataset):
 
 
 # %%
+console.log("Building dataset")
 # Loading training dataset 
 
 train_dataset = CustomDataset(os.path.join(custom_utils.PROJECT_ROOT, "data", "assignment_1", "train"))
@@ -167,6 +171,7 @@ train_dataset = CustomDataset(os.path.join(custom_utils.PROJECT_ROOT, "data", "a
 
 # custom_utils.with_bounding_box(image, target).show()
 
+console.log("Building dataloader")
 # Building training dataloader
 train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH, shuffle=True, collate_fn=custom_utils.collate_fn)
 
@@ -182,9 +187,8 @@ class ObjectDetectionModel(nn.Module):
         for i in range(num_convolutions):
             block = net_utils.build_low_level_feat(in_filter, out_filter, conv_k_sizes[i], pool_k_sizes[i])
             self.conv_blocks.append(block)
-            tmp = in_filter
             in_filter = out_filter * 2
-            out_filter = tmp * 4
+            out_filter = in_filter * 2
         # self.inception1 = net_utils.build_inception_components(64, 128)
         # self.inception2 = net_utils.build_inception_components(128*6, 128*12)
         # self.batch_after_inception2 = nn.BatchNorm2d(128*12*6)
@@ -222,6 +226,7 @@ class ObjectDetectionModel(nn.Module):
 
 
 # %%
+console.log("Creating model")
 num_convolutions = 5
 out_filter = 16
 conv_k_sizes = [5, 3, 3, 3, 3]
@@ -281,7 +286,7 @@ class YoloLoss(nn.Module):
                 batch_bb_loss += f.mse_loss(p_box_coords, target)
         batch_bb_loss /= current_batch_size
 
-        return cel_obj_value + batch_bb_loss + cel_class_value, (cel_obj_value, batch_bb_loss, cel_class_value)
+        return self.l1 * cel_obj_value + self.l2 * batch_bb_loss + self.l3 * cel_class_value, (cel_obj_value, batch_bb_loss, cel_class_value)
 
     def __compute_squared_error(self, x_comp):
         x_comp = x_comp.cpu()
@@ -294,6 +299,7 @@ class YoloLoss(nn.Module):
 
 
 # %%
+console.log("Initializing loss")
 loss_fn = YoloLoss(1, 5, 5)
 optimizer = torch.optim.SGD(network.parameters(), lr=LR, momentum=MOMENTUM)
 
@@ -342,4 +348,5 @@ def train(num_epochs):
 
 
 # %%
+console.log("Training")
 train(3)
