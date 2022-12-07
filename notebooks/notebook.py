@@ -56,6 +56,8 @@ class CustomDataset(Dataset):
             img, target = self.__apply_transform(img, target) 
 
         target["objectness"] = self.__compute_objectness(target['boxes'])
+        target["boxes_mask"] = self.__build_target_bb_mask(target['boxes'])
+        target["labels_mask"] = self.__build_target_labels_mask(target['objectness']['coords'], target['labels'])
 
         return img, target
 
@@ -112,16 +114,47 @@ class CustomDataset(Dataset):
     def __compute_objectness(self, boxes):
         target_matrix = np.zeros(49, dtype=np.float32).reshape(7, 7)
         coords = []
+        square_length = np.round(self.size/7, 1)
 
         for box in boxes:
             box = box.tolist()
-            square_length = np.round(self.size/7, 1)
-            box_centerx, box_centery = np.round((box[2] - box[0]) / 2 + box[0], 1), np.round((box[3] - box[1]) / 2 + box[1], 1)    
-            box_centerx, box_centery = math.floor(box_centerx / square_length), math.floor(box_centery / square_length)
-            target_matrix[box_centery, box_centerx] = 1.0
-            coords.append((box_centerx, box_centery))
+            box_center_x, box_center_y = np.round((box[2] - box[0]) / 2 + box[0], 1), np.round((box[3] - box[1]) / 2 + box[1], 1)
+            box_center_x, box_center_y = math.floor(box_center_x / square_length), math.floor(box_center_y / square_length)
+            target_matrix[box_center_y, box_center_x] = 1.0
+            coords.append((box_center_x, box_center_y))
 
         return {"matrix": torch.as_tensor(target_matrix, dtype=torch.float32, device=custom_utils.DEVICE), "coords": coords}
+
+    def __build_target_bb_mask(self, boxes):
+        target_matrix = np.zeros(49*4, dtype=np.float32).reshape((7, 7, 4))
+        square_length = np.round(self.size/7, 1)
+
+        for box in boxes:
+            box = box.tolist()
+            box_w = box[2] - box[0]
+            box_h = box[3] - box[1]
+            box_center_x = np.round(box[0] + box_w / 2, 1)
+            box_center_y = np.round(box[1] + box_h / 2, 1)
+            square_x, square_y = math.floor(box_center_x / square_length), math.floor(box_center_y / square_length)
+            square_corner_x, square_corner_y = square_x * square_length, square_y * square_length
+            box_center_x = (box_center_x - square_corner_x) / square_length
+            box_center_y = (box_center_y - square_corner_y) / square_length
+            box_w = box_w / self.size
+            box_h = box_h / self.size
+            target_matrix[square_y, square_x, 0] = box_center_x
+            target_matrix[square_y, square_x, 1] = box_center_y
+            target_matrix[square_y, square_x, 2] = box_w
+            target_matrix[square_y, square_x, 3] = box_h
+        return torch.as_tensor(target_matrix, dtype=torch.float32, device=custom_utils.DEVICE)
+
+    def __build_target_labels_mask(self, coords, labels):
+        target_matrix = np.zeros(49 * 13, dtype=np.float32).reshape((7, 7, 13))
+
+        labels = labels.tolist()
+        for index, label in enumerate(labels):
+            target_matrix[coords[index][1], coords[index][0], label-1] = 1.
+
+        return torch.as_tensor(target_matrix, dtype=torch.float32, device=custom_utils.DEVICE)
 
     def __generate_target(self, index):
         """
@@ -138,7 +171,7 @@ class CustomDataset(Dataset):
             boxes.append(annotation["bounding_box"])
             labels.append(annotation["category_id"])
             categories.append(annotation['category_name'])
-            
+
         boxes = torch.as_tensor(boxes, dtype=torch.float32, device=custom_utils.DEVICE)
         labels = torch.as_tensor(labels, dtype=torch.int64, device=custom_utils.DEVICE)
         
@@ -207,16 +240,7 @@ class ObjectDetectionModel(nn.Module):
         x = torch.cat(x, 1)
         x = self.activation_after_inception(x)
         x = self.pool_after_inception(x)
-        # x = [
-        #     self.inception2[0](x),
-        #     self.inception2[1](x),
-        #     self.inception2[2](x),
-        #     self.inception2[3](x)
-        # ]
-        # x = torch.cat(x, 1)
         x = self.batch_after_inception(x)
-        # x = self.activation_after_inception(x)
-        # x = self.pool_after_inception(x)
         x = [
             self.output[0](x),
             self.output[1](x),
@@ -235,72 +259,32 @@ network = ObjectDetectionModel(num_convolutions, out_filter, conv_k_sizes, pool_
 
 
 # %%
-class YoloLoss(nn.Module):
+class Loss(nn.Module):
     def __init__(self, l1, l2, l3):
-        super(YoloLoss, self).__init__()
+        super(Loss, self).__init__()
         self.l1 = l1
         self.l2 = l2
         self.l3 = l3
 
-    def forward(self, outputs, boxes, labels, objectness_list):
-        current_batch_size = outputs.size()[0]
-        # Set up predicted values
-        p_boxes = []
-        p_labels = []
-        p_objectness = []
-        for img in outputs:
-            p_boxes.append(img[1:5])
-            p_labels.append(img[5:])
-            p_objectness.append(img[0].reshape(49))
-        p_boxes = torch.stack(p_boxes)
-        p_labels = torch.stack(p_labels)
-        p_objectness = torch.stack(p_objectness)
-        objects_coords = [entry['coords'] for entry in objectness_list]
+    def forward(self, predictions, targets):
+        predictions = predictions.reshape(-1, 7, 7, 23)
+        target_boxes_mask = targets[4]
 
-        # Compute class loss
-        cel_class_value = 0
-        for i, objects in enumerate(objects_coords):
-            p_label = p_labels[i]
-            for j, box in enumerate(objects):
-                p_label_values = []
-                for filter in p_label:
-                    p_label_values.append(filter[box[1]][box[0]])
-                p_label_values = torch.tensor(p_label_values, dtype=torch.float32, device=custom_utils.DEVICE)
-                cel_class_value += f.cross_entropy(p_label_values, labels[i][j] - 1)
-        cel_class_value /= current_batch_size
+        iou_maxes, best_box = self.__find_best_bb(predictions[..., 2:10], target_boxes_mask)
 
-        # Compute objectness loss
-        objectness = torch.stack([entry['matrix'] for entry in objectness_list]).reshape(current_batch_size, 49)
-        cel_obj_value = f.binary_cross_entropy(p_objectness, objectness)
-
-        # Compute bb loss
-        batch_bb_loss = 0
-        for i, objects in enumerate(objects_coords):
-            p_box = p_boxes[i]
-            for j, box in enumerate(objects):
-                p_box_coords = []
-                for filter in p_box:
-                    p_box_coords.append(filter[box[1]][box[0]].item())
-                p_box_coords = torch.tensor(p_box_coords, dtype=torch.float32, device=custom_utils.DEVICE)
-                target = torch.tensor(self.__compute_squared_error(boxes[i][j]), dtype=torch.float32, device=custom_utils.DEVICE)
-                batch_bb_loss += f.mse_loss(p_box_coords, target)
-        batch_bb_loss /= current_batch_size
-
-        return self.l1 * cel_obj_value + self.l2 * batch_bb_loss + self.l3 * cel_class_value, (cel_obj_value, batch_bb_loss, cel_class_value)
-
-    def __compute_squared_error(self, x_comp):
-        x_comp = x_comp.cpu()
-
-        # v2 is scaled from image size to 1
-        scale = np.vectorize(lambda x: np.round(x / custom_utils.IMG_SIZE, 1))
-        x_comp_scaled = scale(x_comp)
-
-        return x_comp_scaled
+    def __find_best_bb(self, predictions, target_boxes_mask):
+        """
+        Computes the best predicted bounding box using Intersection Over Union
+        """
+        iou_bb_1 = custom_utils.i_over_u(predictions[..., 0:4], target_boxes_mask)  # Computes IOU on first predicted bounding box and target
+        iou_bb_2 = custom_utils.i_over_u(predictions[..., 4:8], target_boxes_mask)  # Computes IOU on first predicted bounding box and target
+        iou_bbs = torch.cat([iou_bb_1.unsqueeze(0), iou_bb_2.unsqueeze(0)], dim=0)  # Merge the previous two into a (2, BATCH, 7, 7, 4) Tensor
+        return torch.max(iou_bbs, dim=0)  # Return best bounding box for each mask cell (maximum IOU)
 
 
 # %%
 console.log("Initializing loss")
-loss_fn = YoloLoss(1, 5, 5)
+loss_fn = Loss(1, 5, 5)
 optimizer = torch.optim.SGD(network.parameters(), lr=LR, momentum=MOMENTUM)
 
 
@@ -313,14 +297,14 @@ def train(num_epochs):
         running_loss = 0.
 
         for i, data in enumerate(tqdm(train_dataloader)):
-            images, boxes, labels, objectness = data
+            images, target = data
             images = images.to(custom_utils.DEVICE)
 
             optimizer.zero_grad()
 
             outputs = network(images)
 
-            loss_fn_return = loss_fn(outputs, boxes, labels, objectness)
+            loss_fn_return = loss_fn(outputs, target)
             loss = loss_fn_return[0]
             loss.backward()
 

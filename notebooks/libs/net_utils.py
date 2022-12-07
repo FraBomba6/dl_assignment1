@@ -46,20 +46,22 @@ def build_inception_components(in_channels, out_channels):
     return pool, conv1, conv2, conv3
 
 
-def build_output_components(in_channels):
+def build_output_components(in_channels, b=2):
     """
-    Builds the three output components of a YOLO-style network
+    Builds the two output components of a YOLO-style network
     :param in_channels: input channels for the block
+    :param b: number of boxes
     :return the three components
     """
+    total_boxes_layers = b * 4
     confidence = nn.Sequential(
-        nn.Conv2d(in_channels, 1, 1),
+        nn.Conv2d(in_channels, b, 1),
         nn.Sigmoid()
     ).to(DEVICE)
     box = nn.Sequential(
-        nn.Conv2d(in_channels, 4, 1),
-        nn.Conv2d(4, 4, 9, padding=4),
-        nn.Conv2d(4, 4, 1),
+        nn.Conv2d(in_channels, total_boxes_layers, 1),
+        nn.Conv2d(total_boxes_layers, total_boxes_layers, 9, padding='same'),
+        nn.Conv2d(total_boxes_layers, total_boxes_layers, 1),
         nn.ReLU()
     ).to(DEVICE)
     classes = nn.Sequential(

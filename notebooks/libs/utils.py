@@ -1,3 +1,4 @@
+import math
 import os
 import torch
 import torchvision
@@ -24,17 +25,26 @@ def collate_fn(batch):
     images = list()
     boxes = list()
     labels = list()
-    objectness = list()
+    mask_coords = list()
+    objectness_mask = list()
+    boxes_mask = list()
+    labels_mask = list()
 
     for b in batch:
         images.append(b[0])
         boxes.append(b[1]["boxes"])
         labels.append(b[1]["labels"])
-        objectness.append(b[1]["objectness"])
+        mask_coords.append(b[1]["objectness"]["coords"])
+        objectness_mask.append(b[1]["objectness"]["matrix"])
+        boxes_mask.append(b[1]["boxes_mask"])
+        labels_mask.append(b[1]["labels_mask"])
 
-    images = torch.stack(images, dim=0)
+    images = torch.stack(images)
+    objectness_mask = torch.stack(objectness_mask)
+    boxes_mask = torch.stack(boxes_mask)
+    labels_mask = torch.stack(labels_mask)
 
-    return images, boxes, labels, objectness
+    return images, (boxes, labels, mask_coords, objectness_mask, boxes_mask, labels_mask)
 
 
 def with_bounding_box(image, target):
@@ -60,3 +70,39 @@ def plot_aspect_ratio_distribution(dataset):
 
     plt.bar(*np.unique(aspect_ratios, return_counts=True))
     return plt
+
+
+def to_center_coords(boxes):
+    new_boxes = []
+    for box in boxes:
+        w = box[2] - box[0]
+        h = box[3] - box[1]
+        x = math.ceil(box[0] + w/2)
+        y = math.ceil(box[1] + h/2)
+        new_boxes.append([x, y, w, h])
+    return new_boxes
+
+
+def i_over_u(batched_predicted_boxes, batched_target_boxes):
+    """
+    Compute intersection over union of batched Tensors
+    """
+
+    pred_x1 = batched_predicted_boxes[..., 0:1] - batched_predicted_boxes[..., 2:3] / 2
+    pred_y1 = batched_predicted_boxes[..., 1:2] - batched_predicted_boxes[..., 3:4] / 2
+    pred_x2 = batched_predicted_boxes[..., 0:1] + batched_predicted_boxes[..., 2:3] / 2
+    pred_y2 = batched_predicted_boxes[..., 1:2] + batched_predicted_boxes[..., 3:4] / 2
+
+    target_x1 = batched_target_boxes[..., 0:1] - batched_target_boxes[..., 2:3] / 2
+    target_y1 = batched_target_boxes[..., 1:2] - batched_target_boxes[..., 3:4] / 2
+    target_x2 = batched_target_boxes[..., 0:1] + batched_target_boxes[..., 2:3] / 2
+    target_y2 = batched_target_boxes[..., 1:2] + batched_target_boxes[..., 3:4] / 2
+
+    intersection_area = (torch.min(pred_x2, target_x2) - torch.max(pred_x1, target_x1)).clamp(0) * (torch.min(pred_y2, target_y2) - torch.max(pred_y1, target_y1)).clamp(0)
+
+    pred_area = torch.abs((pred_x2 - pred_x1) * (pred_y2 - pred_y1))
+    target_area = torch.abs((target_x2 - target_x1) * (target_y2 - target_y1))
+
+    union_area = pred_area + target_area - intersection_area
+
+    return intersection_area/(union_area + 1e-8)
