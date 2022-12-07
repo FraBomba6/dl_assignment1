@@ -251,7 +251,7 @@ class ObjectDetectionModel(nn.Module):
 
 # %%
 console.log("Creating model")
-num_convolutions = 3
+num_convolutions = 5
 out_filter = 16
 conv_k_sizes = [5, 5, 3]
 pool_k_sizes = [4, 2, 2]
@@ -260,17 +260,73 @@ network = ObjectDetectionModel(num_convolutions, out_filter, conv_k_sizes, pool_
 
 # %%
 class Loss(nn.Module):
-    def __init__(self, l1, l2, l3):
+    def __init__(self, l1, l2):
         super(Loss, self).__init__()
+        self.mse = nn.MSELoss(reduction="sum")
         self.l1 = l1
         self.l2 = l2
-        self.l3 = l3
 
     def forward(self, predictions, targets):
         predictions = predictions.reshape(-1, 7, 7, 23)
         target_boxes_mask = targets[4]
+        objectness_mask = targets[3].unsqueeze(3)
 
         iou_maxes, best_box = self.__find_best_bb(predictions[..., 2:10], target_boxes_mask)
+
+        box_loss = self.__compute_box_loss(predictions, target_boxes_mask, objectness_mask, best_box)
+
+        confidence_score = self.__compute_confidence_score(best_box, predictions)
+
+        object_loss = self.mse(
+            torch.flatten(objectness_mask * confidence_score),
+            torch.flatten(targets[3])
+        )
+
+        no_object_loss = self.__compute_no_object_loss(objectness_mask, predictions, targets[3])
+
+        class_loss = self.mse(
+            torch.flatten(objectness_mask * predictions[..., 10:], end_dim=-2),
+            torch.flatten(objectness_mask * targets[5], end_dim=-2)
+        )
+
+        return self.l1 * box_loss + object_loss + self.l2 * no_object_loss + class_loss, (self.l1 * box_loss, object_loss, self.l2 * no_object_loss, class_loss)
+
+    def __compute_box_loss(self, predictions, target_boxes_mask, objectness_mask, best_box):
+        box_predictions = self.__compute_valid_boxes(predictions[..., 2:10], objectness_mask, best_box)
+
+        box_targets = objectness_mask * target_boxes_mask
+
+        box_predictions[..., 2:4] = torch.sign(box_predictions[..., 2:4]) * torch.sqrt(
+            torch.abs(box_predictions[..., 2:4] + 1e-6))
+        box_targets[..., 2:4] = torch.sqrt(box_targets[..., 2:4])
+
+        return self.mse(
+            torch.flatten(box_predictions, end_dim=-2),
+            torch.flatten(box_targets, end_dim=-2)
+        )
+
+    def __compute_no_object_loss(self, objectness_mask, predictions, targets):
+        no_obj_loss_1 = self.mse(
+            torch.flatten(((1 - objectness_mask) * predictions[..., 0:1]), start_dim=1),
+            torch.flatten(((1 - objectness_mask) * targets.unsqueeze(3)), start_dim=1)
+        )
+        no_obj_loss_2 = self.mse(
+            torch.flatten(((1 - objectness_mask) * predictions[..., 1:2]), start_dim=1),
+            torch.flatten(((1 - objectness_mask) * targets.unsqueeze(3)), start_dim=1)
+        )
+        return no_obj_loss_1 + no_obj_loss_2
+
+    def __compute_confidence_score(self, best_box, predictions):
+        """
+            Compute confidence score according to YOLOv1
+        """
+        return best_box * predictions[..., 1:2] + (1 - best_box) * predictions[..., 0:1]
+
+    def __compute_valid_boxes(self, predictions, objectness_mask, best_box):
+        """
+        Computes the valid predictions based on best bounding box and valid objectness
+        """
+        return objectness_mask * (best_box * predictions[..., 4:8] + (1 - best_box) * predictions[..., 0:4])
 
     def __find_best_bb(self, predictions, target_boxes_mask):
         """
@@ -284,7 +340,7 @@ class Loss(nn.Module):
 
 # %%
 console.log("Initializing loss")
-loss_fn = Loss(1, 5, 5)
+loss_fn = Loss(5, 0.5)
 optimizer = torch.optim.SGD(network.parameters(), lr=LR, momentum=MOMENTUM)
 
 
@@ -310,24 +366,16 @@ def train(num_epochs):
 
             optimizer.step()
 
-            running_loss += loss.item()  # extract the loss value
-            obj = loss_fn_return[1][0]
-            bb = loss_fn_return[1][1]
-            cla = loss_fn_return[1][2]
+            running_loss += loss.item()
+            bb = loss_fn_return[1][0]
+            obj = loss_fn_return[1][1]
+            no_obj = loss_fn_return[1][2]
+            cla = loss_fn_return[1][3]
             if i % 10 == 9:
-                # print every 1000 (twice per epoch)
                 print(
-                    '[%d, %5d] loss: %.3f - obj: %.3f | bb: %.3f | class: %.3f' %
-                    (
-                        epoch + 1,
-                        i + 1,
-                        running_loss / 10,
-                        obj,
-                        bb,
-                        cla
-                    )
+                    '[%d, %5d] loss: %.3f - bb: %.3f | obj: %.3f | no_obj: %.3f | class: %.3f' %
+                    (epoch + 1, i + 1, running_loss / 10, bb, obj, no_obj, cla)
                 )
-                # zero the loss
                 running_loss = 0.0
 
 
