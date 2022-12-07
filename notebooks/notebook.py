@@ -1,7 +1,6 @@
 # %%
 import json
 import os
-from random import randint
 from tqdm import tqdm
 import libs.utils as custom_utils
 import libs.net_utils as net_utils
@@ -9,10 +8,9 @@ import numpy as np
 import math
 import torch
 import torch.nn as nn
-from torch.nn import functional as f
 from torchvision import transforms
 from torch.utils.data import Dataset
-from PIL import Image  # module
+from PIL import Image
 from rich.console import Console
 
 console = Console()
