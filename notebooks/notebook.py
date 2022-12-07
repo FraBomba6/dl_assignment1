@@ -249,7 +249,7 @@ class ObjectDetectionModel(nn.Module):
 
 # %%
 console.log("Creating model")
-num_convolutions = 5
+num_convolutions = 3
 out_filter = 16
 conv_k_sizes = [5, 5, 3]
 pool_k_sizes = [4, 2, 2]
