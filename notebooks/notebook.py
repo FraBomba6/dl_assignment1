@@ -96,6 +96,7 @@ def train(num_epochs, print_interval=10):
     network.to(custom_utils.DEVICE)
 
     for epoch in range(num_epochs):
+        console.log("\nTraining Epoch %d\n" % (epoch + 1))
         running_loss = 0.
         epoch_loss = 0.
 
@@ -125,8 +126,9 @@ def train(num_epochs, print_interval=10):
                 )
                 running_loss = 0.0
 
+        console.log("\nTesting accuracy\n")
         accuracy = test_accuracy()
-        console.log('For epoch', epoch + 1, 'the test accuracy over the whole test set is %d %%' % accuracy)
+        console.log('For epoch', epoch + 1, 'the test accuracy over the whole test set is %d' % accuracy)
 
         # we want to save the model if the accuracy is the best
         if accuracy > best_accuracy:
@@ -171,6 +173,5 @@ loss_fn = Loss(5, 0.5)
 optimizer = torch.optim.Adam(network.parameters(), lr=LR)
 # scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=LR, max_lr=0.1)
 
-console.log("Training")
 loss_function_data = train(5, 500)
 custom_utils.plot_loss(loss_function_data)
