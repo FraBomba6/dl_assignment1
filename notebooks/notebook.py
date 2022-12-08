@@ -131,9 +131,9 @@ def train(num_epochs, print_interval=10):
         console.log('For epoch', epoch + 1, 'the test accuracy over the whole test set is %d %%' % accuracy[0])
 
         # we want to save the model if the accuracy is the best
-        if accuracy > best_accuracy:
+        if accuracy[0] > best_accuracy:
             saveModel()
-            best_accuracy = accuracy
+            best_accuracy = accuracy[0]
 
     return pd.DataFrame.from_dict(loss_data)
 
