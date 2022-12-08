@@ -118,4 +118,4 @@ optimizer = torch.optim.Adam(network.parameters(), lr=LR)
 # scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=LR, max_lr=0.1)
 
 console.log("Training")
-train(25)
+train(25, 100)
