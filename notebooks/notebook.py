@@ -135,6 +135,8 @@ def train(num_epochs, print_interval=10):
             saveModel()
             best_accuracy = accuracy[0]
 
+        network.train()
+
     return pd.DataFrame.from_dict(loss_data)
 
 
