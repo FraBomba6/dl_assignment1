@@ -127,8 +127,8 @@ def train(num_epochs, print_interval=10):
                 running_loss = 0.0
 
         console.log("\nTesting accuracy\n")
-        accuracy = test_accuracy()
-        console.log('For epoch', epoch + 1, 'the test accuracy over the whole test set is %.2f%%' % (accuracy[0]*100))
+        accuracy, accuracy_debug = test_accuracy()
+        console.log('For epoch', epoch + 1, 'the test accuracy over the whole test set is %.2f%% [%.2f%%]' % (accuracy[0]*100, accuracy_debug[0]*100))
 
         # we want to save the model if the accuracy is the best
         if accuracy[0] > best_accuracy:
@@ -163,7 +163,7 @@ def test_accuracy():
                 for box in targets:
                     batch_targets.append(box)
 
-        return custom_utils.mean_average_precision(batch_nms_boxes, batch_targets)
+        return custom_utils.mean_average_precision(batch_nms_boxes, batch_targets), custom_utils.mean_average_precision(batch_targets, batch_targets)
 
 
 # %%
