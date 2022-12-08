@@ -13,3 +13,10 @@ curl -O https://bootstrap.pypa.io/get-pip.py
 python get-pip.py
 rm get-pip.py
 pip install -r requirements.txt
+pip install gdown
+apt-get install unzip -y
+mkdir data
+cd data
+gdown 1LNKILhCM6hvC1unvxdt3mLa4jUEQvuIN
+unzip -P dluniud2022 assignment_1.zip
+cd ..
