@@ -92,13 +92,14 @@ class ObjectDetectionModel(nn.Module):
 
 
 # %%
-def train(num_epochs):
+def train(num_epochs, print_interval=10):
     best_accuracy = 0.0
 
     network.to(custom_utils.DEVICE)
 
     for epoch in range(num_epochs):
         running_loss = 0.
+        epoch_loss = 0.
 
         for i, data in enumerate(tqdm(train_dataloader)):
             images, target = data
@@ -111,20 +112,22 @@ def train(num_epochs):
             loss_fn_return = loss_fn(outputs, target)
             loss = loss_fn_return[0]
             loss.backward()
-
             optimizer.step()
 
             running_loss += loss.item()
+            epoch_loss += loss.item() * images.size(0)
             bb = loss_fn_return[1][0]
             obj = loss_fn_return[1][1]
             no_obj = loss_fn_return[1][2]
             cla = loss_fn_return[1][3]
-            if i % 10 == 9:
+            if i % print_interval == print_interval - 1:
                 print(
                     '[%d, %5d] loss: %.3f - bb: %.3f | obj: %.3f | no_obj: %.3f | class: %.3f' %
-                    (epoch + 1, i + 1, running_loss / 10, bb, obj, no_obj, cla)
+                    (epoch + 1, i + 1, running_loss / print_interval, bb, obj, no_obj, cla)
                 )
                 running_loss = 0.0
+        epoch_loss /= len(train_dataloader)
+        console.log(":caution: Average epoch loss was %.3f for epoch %d" % (epoch_loss, epoch + 1))
 
 
 # %%

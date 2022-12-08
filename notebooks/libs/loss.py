@@ -1,6 +1,6 @@
 import torch
 from torch import nn as nn
-import utils as custom_utils
+import libs.utils as custom_utils
 
 
 class Loss(nn.Module):

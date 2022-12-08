@@ -6,7 +6,7 @@ import torch
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
-import utils as custom_utils
+import libs.utils as custom_utils
 
 
 class CustomDataset(Dataset):
