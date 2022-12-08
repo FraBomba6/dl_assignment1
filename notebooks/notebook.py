@@ -51,17 +51,16 @@ class ObjectDetectionModel(nn.Module):
         self.convolutions.append(net_utils.build_simple_convolutional_block(16, 32, conv_kernel=5, pool_kernel=2))
         # 62 x 62
         self.convolutions.append(net_utils.build_simple_convolutional_block(32, 64, pool_kernel=2))
+        self.convolutions.append(net_utils.build_simple_convolutional_block(64, 64))
         # 31 x 31
         self.convolutions.append(net_utils.build_simple_convolutional_block(64, 128, pool_kernel=2))
+        self.convolutions.append(net_utils.build_simple_convolutional_block(128, 128))
         # 15 x 15
         self.convolutions.append(net_utils.build_simple_convolutional_block(128, 256, pool_kernel=2))
         # 7 x 7
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256))
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256))
-        self.convolutions.append(net_utils.build_simple_convolutional_block(256, 128))
-        self.convolutions.append(net_utils.build_simple_convolutional_block(128, 64))
-        self.convolutions.append(net_utils.build_simple_convolutional_block(64, 32))
-        self.output = net_utils.build_output_components(32)
+        self.output = net_utils.build_output_components(256)
 
     def forward(self, x):
         x = self.convolutions(x)
@@ -102,7 +101,7 @@ def train(num_epochs, print_interval=10):
             cla = loss_fn_return[1][3]
             if i % print_interval == print_interval - 1:
                 console.log(
-                    '\n[%d, %5d] loss: %.3f - bb: %.3f | obj: %.3f | no_obj: %.3f | class: %.3f\n' %
+                    '[%d, %5d] loss: %.3f - bb: %.3f | obj: %.3f | no_obj: %.3f | class: %.3f\n' %
                     (epoch + 1, i + 1, running_loss / print_interval, bb, obj, no_obj, cla)
                 )
                 running_loss = 0.0
