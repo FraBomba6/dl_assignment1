@@ -17,8 +17,8 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.ba
 
 IMG_SIZE = 256
 
-CONFIDECNE_TRESHOLD = 0.5
-IOU_TRESHOLD = 0.5
+CONFIDECNE_THRESHOLD = 0.4
+IOU_THRESHOLD = 0.4
 
 
 def collate_fn(batch):
@@ -134,6 +134,7 @@ def from_prediction_to_box(prediction: torch.Tensor):
             boxes.append([cla, confidence, x, y, w, h])
     return boxes
 
+
 def non_max_suppression(bounding_boxes: list):
     """
     Perform Non Max Suppression to find which predicted bounding box is the best
@@ -141,7 +142,7 @@ def non_max_suppression(bounding_boxes: list):
     :return:
     """
     # Purge boxes which confidence is too low
-    bounding_boxes = [box for box in bounding_boxes if box[1] > CONFIDECNE_TRESHOLD]
+    bounding_boxes = [box for box in bounding_boxes if box[1] > CONFIDECNE_THRESHOLD]
     bounding_boxes = sorted(bounding_boxes, key=lambda x: x[1], reverse=True)
     boxes = []
     while bounding_boxes:
@@ -150,7 +151,7 @@ def non_max_suppression(bounding_boxes: list):
 
         for index, box in enumerate(bounding_boxes):
             iou = i_over_u(torch.tensor(max_confidence_box[2:], device=DEVICE), torch.tensor(box[2:], device=DEVICE))
-            if box[0] == max_confidence_box[0] and iou >= IOU_TRESHOLD:
+            if box[0] == max_confidence_box[0] and iou >= IOU_THRESHOLD:
                 bounding_boxes.pop(index)
     return boxes
 
@@ -195,7 +196,7 @@ def mean_average_precision(predictions, targets):
                     best_iou = iou
                     best_ground_truth_id = ground_truth_id
 
-            if best_iou > IOU_TRESHOLD and amount_of_bounding_boxes[detection[0]][best_ground_truth_id] == 0:
+            if best_iou > IOU_THRESHOLD and amount_of_bounding_boxes[detection[0]][best_ground_truth_id] == 0:
                     TP[detection_id] = 1
                     amount_of_bounding_boxes[detection[0]][best_ground_truth_id] = 1
             else:
