@@ -22,7 +22,7 @@ torch.manual_seed(3407)
 
 # Initialize training variables
 BATCH = 4
-LR = 0.001
+LR = 0.01
 MOMENTUM = 0.9
 
 # %%
@@ -42,47 +42,27 @@ train_dataloader = torch.utils.data.DataLoader(
 
 # %%
 class ObjectDetectionModel(nn.Module):
-    def __init__(self, num_convolutions: int, out_filter: int, conv_k_sizes: list, pool_k_sizes: list):
+    def __init__(self):
         super(ObjectDetectionModel, self).__init__()
-        if len(conv_k_sizes) != len(pool_k_sizes) or len(conv_k_sizes) != num_convolutions or len(pool_k_sizes) != num_convolutions:
-            raise RuntimeError("Mismatch in length of arguments")
-        in_filter = 3
-        self.conv_blocks = nn.Sequential()
-        for i in range(num_convolutions):
-            block = net_utils.build_low_level_feat(in_filter, out_filter, conv_k_sizes[i], pool_k_sizes[i])
-            self.conv_blocks.append(block)
-            in_filter = out_filter
-            out_filter *= 2
-        self.inception1 = net_utils.build_inception_components(in_filter, out_filter)
-        in_filter = out_filter * 6
-        out_filter = in_filter * 2
-        self.inception2 = net_utils.build_inception_components(in_filter, out_filter)
-        self.batch_after_inception2 = nn.BatchNorm2d(out_filter*6)
-        self.activation_after_inception = nn.ReLU()
-        self.pool_after_inception = nn.MaxPool2d(2, 2)
-        self.output = net_utils.build_output_components(out_filter*6)
+        self.convolutions = nn.Sequential()
+        # 256 x 256
+        self.convolutions.append(net_utils.build_simple_convolutional_block(3, 16, conv_kernel=7, conv_stride=2))
+        # 125 x 125
+        self.convolutions.append(net_utils.build_simple_convolutional_block(16, 32, conv_kernel=5, pool_kernel=2))
+        # 62 x 62
+        self.convolutions.append(net_utils.build_simple_convolutional_block(32, 64, pool_kernel=2))
+        # 31 x 31
+        self.convolutions.append(net_utils.build_simple_convolutional_block(64, 128, pool_kernel=2))
+        # 15 x 15
+        self.convolutions.append(net_utils.build_simple_convolutional_block(128, 256, pool_kernel=2))
+        # 7 x 7
+        self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256))
+        self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256))
+        self.convolutions.append(net_utils.build_simple_convolutional_block(256, 128))
+        self.output = net_utils.build_output_components(128)
 
     def forward(self, x):
-        x = self.conv_blocks(x)
-        x = [
-            self.inception1[0](x),
-            self.inception1[1](x),
-            self.inception1[2](x),
-            self.inception1[3](x)
-        ]
-        x = torch.cat(x, 1)
-        x = self.activation_after_inception(x)
-        x = self.pool_after_inception(x)
-        x = [
-            self.inception2[0](x),
-            self.inception2[1](x),
-            self.inception2[2](x),
-            self.inception2[3](x)
-        ]
-        x = torch.cat(x, 1)
-        x = self.activation_after_inception(x)
-        x = self.pool_after_inception(x)
-        x = self.batch_after_inception2(x)
+        x = self.convolutions(x)
         x = [
             self.output[0](x),
             self.output[1](x),
@@ -105,10 +85,8 @@ def train(num_epochs, print_interval=10):
             images, target = data
             images = images.to(custom_utils.DEVICE)
 
-            optimizer.zero_grad()
-
             outputs = network(images)
-
+            optimizer.zero_grad()
             loss_fn_return = loss_fn(outputs, target)
             loss = loss_fn_return[0]
             loss.backward()
@@ -132,16 +110,12 @@ def train(num_epochs, print_interval=10):
 
 # %%
 console.log("Creating model")
-num_convolutions = 4
-out_filter = 16
-conv_k_sizes = [5, 3, 3, 3]
-pool_k_sizes = [2, 2, 2, 1]
-network = ObjectDetectionModel(num_convolutions, out_filter, conv_k_sizes, pool_k_sizes)
+network = ObjectDetectionModel()
 
 console.log("Initializing loss and optimizer")
 loss_fn = Loss(5, 0.5)
-optimizer = torch.optim.SGD(network.parameters(), lr=LR)
-scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=LR, max_lr=0.1)
+optimizer = torch.optim.Adam(network.parameters(), lr=LR)
+# scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=LR, max_lr=0.1)
 
 console.log("Training")
 train(25)
