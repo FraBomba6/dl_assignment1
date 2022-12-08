@@ -102,7 +102,7 @@ def train(num_epochs, print_interval=10):
             cla = loss_fn_return[1][3]
             if i % print_interval == print_interval - 1:
                 print(
-                    '[%d, %5d] loss: %.3f - bb: %.3f | obj: %.3f | no_obj: %.3f | class: %.3f' %
+                    '[%d, %5d] loss: %.3f - bb: %.3f | obj: %.3f | no_obj: %.3f | class: %.3f\n' %
                     (epoch + 1, i + 1, running_loss / print_interval, bb, obj, no_obj, cla)
                 )
                 running_loss = 0.0
