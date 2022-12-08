@@ -34,6 +34,7 @@ def collate_fn(batch):
     objectness_mask = list()
     boxes_mask = list()
     labels_mask = list()
+    boxes_center = list()
 
     for b in batch:
         images.append(b[0])
@@ -43,13 +44,14 @@ def collate_fn(batch):
         objectness_mask.append(b[1]["objectness"]["matrix"])
         boxes_mask.append(b[1]["boxes_mask"])
         labels_mask.append(b[1]["labels_mask"])
+        boxes_center.append([[b[1]["labels"][index].item()-1] + [1] + box for index, box in enumerate(b[1]["boxes_center"])])
 
     images = torch.stack(images)
     objectness_mask = torch.stack(objectness_mask)
     boxes_mask = torch.stack(boxes_mask)
     labels_mask = torch.stack(labels_mask)
 
-    return images, (boxes, labels, mask_coords, objectness_mask, boxes_mask, labels_mask)
+    return images, (boxes, labels, mask_coords, objectness_mask, boxes_mask, labels_mask, boxes_center)
 
 
 def with_bounding_box(image, target):
@@ -120,6 +122,18 @@ def i_over_u(batched_predicted_boxes: torch.Tensor, batched_target_boxes: torch.
     return intersection_area/(union_area + 1e-8)
 
 
+def from_prediction_to_box(prediction: torch.Tensor):
+    prediction = prediction.reshape(7, 7, 23)
+    boxes = []
+    for i in range(7):
+        for j in range(7):
+            best_box = torch.argmax(prediction[i, j, 0:2]).item()
+            confidence = prediction[i, j, best_box].item()
+            x, y, w, h = [coord.item() for coord in prediction[i, j, 2+4*best_box:6+4*best_box]]
+            cla = torch.argmax(prediction[i, j, 10:]).item()
+            boxes.append([cla, confidence, x, y, w, h])
+    return boxes
+
 def non_max_suppression(bounding_boxes: list):
     """
     Perform Non Max Suppression to find which predicted bounding box is the best
@@ -127,7 +141,7 @@ def non_max_suppression(bounding_boxes: list):
     :return:
     """
     # Purge boxes which confidence is too low
-    bounding_boxes = [box for box in bounding_boxes if box[1] < CONFIDECNE_TRESHOLD]
+    bounding_boxes = [box for box in bounding_boxes if box[1] > CONFIDECNE_TRESHOLD]
     bounding_boxes = sorted(bounding_boxes, key=lambda x: x[1], reverse=True)
     boxes = []
     while bounding_boxes:
@@ -145,7 +159,7 @@ def mean_average_precision(predictions, targets):
     """
     Computes mAP to evaluate model
     :param predictions: list of lists of the type [image_index, class, confidence, x, y, w, h]
-    :param targets: as the previous but with only ture boxes
+    :param targets: as the previous but with only true boxes
     :return: mAP score
     """
     average_precisions = []

@@ -38,7 +38,7 @@ class CustomDataset(Dataset):
             img, target = self.__apply_transform(img, target)
 
         target["objectness"] = self.__compute_objectness(target['boxes'])
-        target["boxes_mask"] = self.__build_target_bb_mask(target['boxes'])
+        target["boxes_mask"], target["boxes_center"] = self.__build_target_bb_mask(target['boxes'])
         target["labels_mask"] = self.__build_target_labels_mask(target['objectness']['coords'], target['labels'])
 
         return img, target
@@ -110,6 +110,7 @@ class CustomDataset(Dataset):
     def __build_target_bb_mask(self, boxes):
         target_matrix = np.zeros(49*4, dtype=np.float32).reshape((7, 7, 4))
         square_length = np.round(self.size/7, 1)
+        new_coord_boxes = []
 
         for box in boxes:
             box = box.tolist()
@@ -127,7 +128,8 @@ class CustomDataset(Dataset):
             target_matrix[square_y, square_x, 1] = box_center_y
             target_matrix[square_y, square_x, 2] = box_w
             target_matrix[square_y, square_x, 3] = box_h
-        return torch.as_tensor(target_matrix, dtype=torch.float32, device=custom_utils.DEVICE)
+            new_coord_boxes.append([box_center_x, box_center_y, box_w, box_h])
+        return torch.as_tensor(target_matrix, dtype=torch.float32, device=custom_utils.DEVICE), new_coord_boxes
 
     def __build_target_labels_mask(self, coords, labels):
         target_matrix = np.zeros(49 * 13, dtype=np.float32).reshape((7, 7, 13))

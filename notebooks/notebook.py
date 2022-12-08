@@ -3,6 +3,7 @@
 import os
 from tqdm import tqdm
 from rich.console import Console
+from datetime import datetime
 
 # Torch-related imports
 import torch
@@ -30,11 +31,18 @@ MOMENTUM = 0.9
 # Loading training dataset
 console.log("Building dataset")
 train_dataset = CustomDataset(os.path.join(custom_utils.PROJECT_ROOT, "data", "assignment_1", "train"))
+test_dataset = CustomDataset(os.path.join(custom_utils.PROJECT_ROOT, "data", "assignment_1", "test"))
 
 # Building training dataloader
 console.log("Building dataloader")
 train_dataloader = torch.utils.data.DataLoader(
     train_dataset,
+    batch_size=BATCH,
+    shuffle=True,
+    collate_fn=custom_utils.collate_fn
+)
+test_dataloader = torch.utils.data.DataLoader(
+    test_dataset,
     batch_size=BATCH,
     shuffle=True,
     collate_fn=custom_utils.collate_fn
@@ -53,8 +61,10 @@ class ObjectDetectionModel(nn.Module):
         # 62 x 62
         self.convolutions.append(net_utils.build_simple_convolutional_block(32, 64, pool_kernel=2))
         self.convolutions.append(net_utils.build_simple_convolutional_block(64, 64))
+        self.convolutions.append(net_utils.build_simple_convolutional_block(64, 64))
         # 31 x 31
         self.convolutions.append(net_utils.build_simple_convolutional_block(64, 128, pool_kernel=2))
+        self.convolutions.append(net_utils.build_simple_convolutional_block(128, 128))
         self.convolutions.append(net_utils.build_simple_convolutional_block(128, 128))
         # 15 x 15
         self.convolutions.append(net_utils.build_simple_convolutional_block(128, 256, pool_kernel=2))
@@ -74,6 +84,11 @@ class ObjectDetectionModel(nn.Module):
 
 
 # %%
+def saveModel():
+    path = os.path.join(custom_utils.PROJECT_ROOT, "models", datetime.now().strftime("%Y%m%d%H%M%S"), ".pth")
+    torch.save(network.state_dict(), path)
+
+
 def train(num_epochs, print_interval=10):
     best_accuracy = 0.0
     loss_data = {'epoch': [], 'loss': []}
@@ -109,10 +124,43 @@ def train(num_epochs, print_interval=10):
                     (epoch + 1, i + 1, running_loss / print_interval, bb, obj, no_obj, cla)
                 )
                 running_loss = 0.0
-        epoch_loss /= len(train_dataloader)
-    
-        return pd.DataFrame.from_dict(loss_data)
-        # console.log("Average epoch loss was %.3f for epoch %d" % (epoch_loss, epoch + 1))
+
+        accuracy = test_accuracy()
+        console.log('For epoch', epoch + 1, 'the test accuracy over the whole test set is %d %%' % accuracy)
+
+        # we want to save the model if the accuracy is the best
+        if accuracy > best_accuracy:
+            saveModel()
+            best_accuracy = accuracy
+
+    return pd.DataFrame.from_dict(loss_data)
+
+
+def test_accuracy():
+    network.eval()
+
+    with torch.no_grad():
+        batch_nms_boxes = []
+        batch_targets = []
+        for data_index, data in enumerate(tqdm(train_dataloader)):
+            images, target = data
+            images = images.to(custom_utils.DEVICE)
+
+            outputs = network(images)
+
+            for index, boxes in enumerate(outputs):
+                boxes = custom_utils.from_prediction_to_box(boxes)
+                nms_boxes = custom_utils.non_max_suppression(boxes)
+                nms_boxes = [[data_index * BATCH + index] + box for box in nms_boxes]
+                targets = target[6][index]
+                targets = [[data_index * BATCH + index] + box for box in targets]
+                for box in nms_boxes:
+                    batch_nms_boxes.append(box)
+                for box in targets:
+                    batch_targets.append(box)
+
+        return custom_utils.mean_average_precision(batch_nms_boxes, batch_targets)
+
 
 # %%
 console.log("Creating model")
@@ -124,5 +172,5 @@ optimizer = torch.optim.Adam(network.parameters(), lr=LR)
 # scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=LR, max_lr=0.1)
 
 console.log("Training")
-loss_function_data = train(25, 100)
+loss_function_data = train(5, 500)
 custom_utils.plot_loss(loss_function_data)

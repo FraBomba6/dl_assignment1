@@ -6,7 +6,7 @@ import libs.utils as custom_utils
 class Loss(nn.Module):
     def __init__(self, l1, l2):
         super(Loss, self).__init__()
-        self.mse = nn.MSELoss(reduction="sum")
+        self.mse = nn.MSELoss(reduction="mean")
         self.l1 = l1
         self.l2 = l2
 
