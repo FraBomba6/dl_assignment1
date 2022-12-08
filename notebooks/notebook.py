@@ -146,7 +146,7 @@ def test_accuracy():
     with torch.no_grad():
         batch_nms_boxes = []
         batch_targets = []
-        for data_index, data in enumerate(tqdm(train_dataloader)):
+        for data_index, data in enumerate(tqdm(test_dataloader)):
             images, target = data
             images = images.to(custom_utils.DEVICE)
 
