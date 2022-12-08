@@ -19,8 +19,8 @@ console.log("Initializing model parameters")
 torch.manual_seed(3407)
 
 # Initialize training variables
-BATCH = 16
-LR = 0.01
+BATCH = 4
+LR = 0.001
 MOMENTUM = 0.9
 
 
@@ -185,25 +185,12 @@ class CustomDataset(Dataset):
 
 
 # %%
+# Loading training dataset
 console.log("Building dataset")
-# Loading training dataset 
-
 train_dataset = CustomDataset(os.path.join(custom_utils.PROJECT_ROOT, "data", "assignment_1", "train"))
 
-# plot_size_distribution(dataset)
-
-# random image
-# image, target = train_dataset[randint(0, len(train_dataset))]
-# transforms.ToPILImage()(target['objectness']["matrix"]).show()
-
-# print(target['objectness']["matrix"])
-
-# check bounding box
-
-# custom_utils.with_bounding_box(image, target).show()
-
-console.log("Building dataloader")
 # Building training dataloader
+console.log("Building dataloader")
 train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH, shuffle=True, collate_fn=custom_utils.collate_fn)
 
 
@@ -221,8 +208,10 @@ class ObjectDetectionModel(nn.Module):
             in_filter = out_filter
             out_filter *= 2
         self.inception1 = net_utils.build_inception_components(in_filter, out_filter)
-        # self.inception2 = net_utils.build_inception_components(128*6, 128*12)
-        self.batch_after_inception = nn.BatchNorm2d(out_filter*6)
+        in_filter = out_filter * 6
+        out_filter = in_filter * 2
+        self.inception2 = net_utils.build_inception_components(in_filter, out_filter)
+        self.batch_after_inception2 = nn.BatchNorm2d(out_filter*6)
         self.activation_after_inception = nn.ReLU()
         self.pool_after_inception = nn.MaxPool2d(2, 2)
         self.output = net_utils.build_output_components(out_filter*6)
@@ -238,22 +227,22 @@ class ObjectDetectionModel(nn.Module):
         x = torch.cat(x, 1)
         x = self.activation_after_inception(x)
         x = self.pool_after_inception(x)
-        x = self.batch_after_inception(x)
+        x = [
+            self.inception2[0](x),
+            self.inception2[1](x),
+            self.inception2[2](x),
+            self.inception2[3](x)
+        ]
+        x = torch.cat(x, 1)
+        x = self.activation_after_inception(x)
+        x = self.pool_after_inception(x)
+        x = self.batch_after_inception2(x)
         x = [
             self.output[0](x),
             self.output[1](x),
             self.output[2](x)
         ]
         return torch.cat(x, 1)
-
-
-# %%
-console.log("Creating model")
-num_convolutions = 3
-out_filter = 16
-conv_k_sizes = [5, 5, 3]
-pool_k_sizes = [4, 2, 2]
-network = ObjectDetectionModel(num_convolutions, out_filter, conv_k_sizes, pool_k_sizes)
 
 
 # %%
@@ -337,11 +326,6 @@ class Loss(nn.Module):
 
 
 # %%
-console.log("Initializing loss")
-loss_fn = Loss(5, 0.5)
-optimizer = torch.optim.SGD(network.parameters(), lr=LR, momentum=MOMENTUM)
-
-
 def train(num_epochs):
     best_accuracy = 0.0
 
@@ -378,5 +362,17 @@ def train(num_epochs):
 
 
 # %%
+console.log("Creating model")
+num_convolutions = 4
+out_filter = 16
+conv_k_sizes = [5, 3, 3, 3]
+pool_k_sizes = [2, 2, 2, 1]
+network = ObjectDetectionModel(num_convolutions, out_filter, conv_k_sizes, pool_k_sizes)
+
+console.log("Initializing loss and optimizer")
+loss_fn = Loss(5, 0.5)
+optimizer = torch.optim.SGD(network.parameters(), lr=LR)
+scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=LR, max_lr=0.1)
+
 console.log("Training")
-train(3)
+train(25)
