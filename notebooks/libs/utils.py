@@ -62,6 +62,13 @@ def with_bounding_box(image, target):
     return transforms.ToPILImage()(tensor_image)
 
 
+def plot_loss(dataset):
+    xs = dataset["loss"].plot()
+    _ = xs.set_ylabel("loss")
+    _ = xs.set_xlabel("epoch")
+    plt.show()
+
+
 def plot_aspect_ratio_distribution(dataset):
     """
     Returns the aspect ratio distribution of a CustomDataset

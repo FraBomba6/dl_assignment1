@@ -8,6 +8,7 @@ from rich.console import Console
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
+import pandas as pd
 
 # Custom imports
 import libs.utils as custom_utils
@@ -75,6 +76,7 @@ class ObjectDetectionModel(nn.Module):
 # %%
 def train(num_epochs, print_interval=10):
     best_accuracy = 0.0
+    loss_data = {'epoch': [], 'loss': []}
 
     network.to(custom_utils.DEVICE)
 
@@ -90,6 +92,8 @@ def train(num_epochs, print_interval=10):
             optimizer.zero_grad()
             loss_fn_return = loss_fn(outputs, target)
             loss = loss_fn_return[0]
+            loss_data['epoch'].append(epoch)
+            loss_data['loss'].append(loss.item())
             loss.backward()
             optimizer.step()
 
@@ -106,8 +110,9 @@ def train(num_epochs, print_interval=10):
                 )
                 running_loss = 0.0
         epoch_loss /= len(train_dataloader)
+    
+        return pd.DataFrame.from_dict(loss_data)
         # console.log("Average epoch loss was %.3f for epoch %d" % (epoch_loss, epoch + 1))
-
 
 # %%
 console.log("Creating model")
@@ -119,4 +124,5 @@ optimizer = torch.optim.Adam(network.parameters(), lr=LR)
 # scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=LR, max_lr=0.1)
 
 console.log("Training")
-train(25, 100)
+loss_function_data = train(25, 100)
+custom_utils.plot_loss(loss_function_data)
