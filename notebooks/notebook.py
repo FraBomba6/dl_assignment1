@@ -62,8 +62,12 @@ class ObjectDetectionModel(nn.Module):
         self.inception2 = net_utils.build_inception_components(192, 40)  # Out: 240
         self.pool1 = nn.MaxPool2d(2, 2)
         self.inception3 = net_utils.build_inception_components(240, 50)  # Out: 300
-        self.inception4 = net_utils.build_inception_components(300, 70)  # Out: 420
-        self.pool2 = nn.AvgPool2d(2, 2)
+        self.inception4 = net_utils.build_inception_components(300, 50)  # Out: 420
+        self.inception5 = net_utils.build_inception_components(300, 70)  # Out: 300
+        self.inception6 = net_utils.build_inception_components(420, 70)  # Out: 420
+        self.inception7 = net_utils.build_inception_components(420, 85)  # Out: 300
+        self.inception8 = net_utils.build_inception_components(510, 85)  # Out: 420
+        self.pool2 = nn.MaxPool2d(2, 2)
         # # 256 x 256
         # self.convolutions.append(net_utils.build_simple_convolutional_block(3, 64, conv_kernel=7, conv_stride=2))
         # # 125 x 125
@@ -83,7 +87,7 @@ class ObjectDetectionModel(nn.Module):
         # self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024, conv_kernel=1))
         # self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024))
         # # 7 x 7
-        self.output = net_utils.build_output_components(420)
+        self.output = net_utils.build_output_components(510)
 
     def forward(self, x):
         x = self.convolutions(x)
@@ -114,6 +118,34 @@ class ObjectDetectionModel(nn.Module):
             self.inception4[1](x),
             self.inception4[2](x),
             self.inception4[3](x)
+        ]
+        x = torch.cat(x, 1)
+        x = [
+            self.inception5[0](x),
+            self.inception5[1](x),
+            self.inception5[2](x),
+            self.inception5[3](x)
+        ]
+        x = torch.cat(x, 1)
+        x = [
+            self.inception6[0](x),
+            self.inception6[1](x),
+            self.inception6[2](x),
+            self.inception6[3](x)
+        ]
+        x = torch.cat(x, 1)
+        x = [
+            self.inception7[0](x),
+            self.inception7[1](x),
+            self.inception7[2](x),
+            self.inception7[3](x)
+        ]
+        x = torch.cat(x, 1)
+        x = [
+            self.inception8[0](x),
+            self.inception8[1](x),
+            self.inception8[2](x),
+            self.inception8[3](x)
         ]
         x = torch.cat(x, 1)
         x = self.pool2(x)
