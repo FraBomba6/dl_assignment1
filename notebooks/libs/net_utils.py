@@ -71,6 +71,8 @@ def build_output_components(in_channels, b=2):
     total_boxes_layers = b * 4
     confidence = nn.Sequential(
         nn.Conv2d(in_channels, b, 1),
+        nn.Conv2d(b, b, 3, padding="same"),
+        nn.Conv2d(b, b, 1),
         nn.BatchNorm2d(b),
         nn.Sigmoid()
     ).to(DEVICE)
