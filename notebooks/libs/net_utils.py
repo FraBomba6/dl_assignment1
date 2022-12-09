@@ -75,8 +75,7 @@ def build_output_components(in_channels, b=2):
     box = nn.Sequential(
         nn.Conv2d(in_channels, total_boxes_layers, 1),
         nn.Conv2d(total_boxes_layers, total_boxes_layers, 9, padding='same'),
-        nn.Conv2d(total_boxes_layers, total_boxes_layers, 1),
-        nn.ReLU()
+        nn.Conv2d(total_boxes_layers, total_boxes_layers, 1)
     ).to(DEVICE)
     classes = nn.Sequential(
         nn.Conv2d(in_channels, 13, 1),
