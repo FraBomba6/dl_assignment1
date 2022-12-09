@@ -17,8 +17,8 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.ba
 
 IMG_SIZE = 256
 
-CONFIDECNE_THRESHOLD = 0.25
-IOU_THRESHOLD = 0.25
+CONFIDECNE_THRESHOLD = 0.4
+IOU_THRESHOLD = 0.5
 
 
 def collate_fn(batch):
