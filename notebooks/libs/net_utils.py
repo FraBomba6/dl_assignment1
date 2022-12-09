@@ -3,10 +3,10 @@ import torch.nn as nn
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
 
-def build_simple_convolutional_block(in_channels, out_channels, conv_kernel=3, conv_stride=1, pool_kernel=None, dropout=False):
-    if conv_stride != 1:
+def build_simple_convolutional_block(in_channels, out_channels, conv_kernel=3, conv_stride=1, pool_kernel=None, dropout=False, padding=None):
+    if conv_stride != 1 and padding is None:
         padding = 0
-    else:
+    elif padding is None:
         padding = "same"
     layers = nn.Sequential()
     layers.append(nn.Conv2d(in_channels, out_channels, kernel_size=conv_kernel, stride=conv_stride, padding=padding))
@@ -29,9 +29,9 @@ def build_low_level_feat(in_channels, out_channels, conv_k_size, pool_k_size):
     :return Sequential object [Conv -> ReLU -> Conv -> ReLU -> Conv -> BatchNorm -> ReLU -> MaxPool]
     """
     layers = nn.Sequential()
-    layers.append(nn.Conv2d(in_channels, out_channels, kernel_size=conv_k_size, padding=1))
+    layers.append(nn.Conv2d(in_channels, out_channels, kernel_size=conv_k_size, padding="same"))
     layers.append(nn.ReLU())
-    layers.append(nn.Conv2d(out_channels, out_channels, kernel_size=conv_k_size, padding=1))
+    layers.append(nn.Conv2d(out_channels, out_channels, kernel_size=conv_k_size, padding="same"))
     layers.append(nn.ReLU())
     layers.append(nn.BatchNorm2d(out_channels))
     layers.append(nn.MaxPool2d(kernel_size=pool_k_size, stride=pool_k_size))
