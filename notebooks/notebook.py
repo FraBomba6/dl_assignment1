@@ -73,7 +73,10 @@ class ObjectDetectionModel(nn.Module):
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256, conv_kernel=5))
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256))
         # 7 x 7
-        self.output = net_utils.build_output_components(256)
+        self.convolutions.append(net_utils.build_simple_convolutional_block(256, 512, conv_kernel=5))
+        self.convolutions.append(net_utils.build_simple_convolutional_block(512, 512, conv_kernel=5))
+        self.convolutions.append(net_utils.build_simple_convolutional_block(512, 512))
+        self.output = net_utils.build_output_components(512)
 
     def forward(self, x):
         x = self.convolutions(x)
