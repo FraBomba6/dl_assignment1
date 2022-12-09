@@ -55,28 +55,25 @@ class ObjectDetectionModel(nn.Module):
         super(ObjectDetectionModel, self).__init__()
         self.convolutions = nn.Sequential()
         # 256 x 256
-        self.convolutions.append(net_utils.build_simple_convolutional_block(3, 16, conv_kernel=7, conv_stride=2))
+        self.convolutions.append(net_utils.build_simple_convolutional_block(3, 64, conv_kernel=7, conv_stride=2))
         # 125 x 125
-        self.convolutions.append(net_utils.build_simple_convolutional_block(16, 32, conv_kernel=5, pool_kernel=2))
-        self.convolutions.append(net_utils.build_simple_convolutional_block(32, 32, conv_kernel=5))
-        self.convolutions.append(net_utils.build_simple_convolutional_block(32, 32))
-        # 62 x 62
-        self.convolutions.append(net_utils.build_simple_convolutional_block(32, 64, conv_kernel=5, pool_kernel=2))
-        self.convolutions.append(net_utils.build_simple_convolutional_block(64, 64))
-        self.convolutions.append(net_utils.build_simple_convolutional_block(64, 64))
-        # 31 x 31
         self.convolutions.append(net_utils.build_simple_convolutional_block(64, 128, conv_kernel=5, pool_kernel=2))
-        self.convolutions.append(net_utils.build_simple_convolutional_block(128, 128, conv_kernel=5))
+        self.convolutions.append(net_utils.build_simple_convolutional_block(128, 128, conv_kernel=1))
         self.convolutions.append(net_utils.build_simple_convolutional_block(128, 128))
-        # 15 x 15
+        # 62 x 62
         self.convolutions.append(net_utils.build_simple_convolutional_block(128, 256, conv_kernel=5, pool_kernel=2))
-        self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256, conv_kernel=5))
+        self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256, conv_kernel=1))
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256))
-        # 7 x 7
-        self.convolutions.append(net_utils.build_simple_convolutional_block(256, 512, conv_kernel=5))
-        self.convolutions.append(net_utils.build_simple_convolutional_block(512, 512, conv_kernel=5))
+        # 31 x 31
+        self.convolutions.append(net_utils.build_simple_convolutional_block(256, 512, conv_kernel=5, pool_kernel=2))
+        self.convolutions.append(net_utils.build_simple_convolutional_block(512, 512, conv_kernel=1))
         self.convolutions.append(net_utils.build_simple_convolutional_block(512, 512))
-        self.output = net_utils.build_output_components(512)
+        # 15 x 15
+        self.convolutions.append(net_utils.build_simple_convolutional_block(512, 1024, conv_kernel=5, pool_kernel=2))
+        self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024, conv_kernel=1))
+        self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024))
+        # 7 x 7
+        self.output = net_utils.build_output_components(1024)
 
     def forward(self, x):
         x = self.convolutions(x)
