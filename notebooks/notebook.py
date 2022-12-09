@@ -85,7 +85,7 @@ class ObjectDetectionModel(nn.Module):
 
 # %%
 def saveModel():
-    path = os.path.join(custom_utils.PROJECT_ROOT, "models", datetime.now().strftime("%Y%m%d%H%M%S"), ".pth")
+    path = os.path.join(custom_utils.PROJECT_ROOT, "models", datetime.now().strftime("%Y%m%d%H%M%S") + ".pth")
     torch.save(network.state_dict(), path)
 
 
