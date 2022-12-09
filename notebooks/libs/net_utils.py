@@ -3,11 +3,12 @@ import torch.nn as nn
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
 
-def build_simple_convolutional_block(in_channels, out_channels, conv_kernel=3, conv_stride=1, pool_kernel=None, dropout=False):
-    if conv_stride != 1:
-        padding = 0
-    else:
-        padding = "same"
+def build_simple_convolutional_block(in_channels, out_channels, conv_kernel=3, conv_stride=1, pool_kernel=None, dropout=False, padding=None):
+    if padding is None:
+        if conv_stride != 1:
+            padding = 0
+        else:
+            padding = "same"
     layers = nn.Sequential()
     layers.append(nn.Conv2d(in_channels, out_channels, kernel_size=conv_kernel, stride=conv_stride, padding=padding))
     layers.append(nn.BatchNorm2d(out_channels))
