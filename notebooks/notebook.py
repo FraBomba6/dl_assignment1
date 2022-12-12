@@ -24,7 +24,7 @@ torch.manual_seed(3407)
 
 # Initialize training variables
 BATCH = 4
-LR = 0.01
+LR = 0.1
 MOMENTUM = 0.9
 
 # %%
@@ -65,13 +65,13 @@ class ObjectDetectionModel(nn.Module):
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256, conv_kernel=1))
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 512, pool_kernel=2))
         # 31 x 31
-        for i in range(5):
+        for i in range(3):
             self.convolutions.append(net_utils.build_simple_convolutional_block(512, 256, conv_kernel=1))
             self.convolutions.append(net_utils.build_simple_convolutional_block(256, 512))
         self.convolutions.append(net_utils.build_simple_convolutional_block(512, 512, conv_kernel=1))
         self.convolutions.append(net_utils.build_simple_convolutional_block(512, 1024, pool_kernel=2))
         # 15 x 15
-        for i in range(5):
+        for i in range(3):
             self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 512, conv_kernel=1))
             self.convolutions.append(net_utils.build_simple_convolutional_block(512, 1024))
         self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024, pool_kernel=2))
@@ -80,10 +80,10 @@ class ObjectDetectionModel(nn.Module):
         # 7 x 7
         # self.output = net_utils.build_output_components(1024)
         self.output = nn.Sequential(
-            nn.Linear(1024*7*7, 512*7*7),
+            nn.Linear(1024*7*7, 256*7*7),
             nn.ReLU(),
             nn.Dropout(),
-            nn.Linear(512*7*7, 23*7*7),
+            nn.Linear(256*7*7, 23*7*7),
             nn.Sigmoid()
         )
 
@@ -113,6 +113,7 @@ def train(num_epochs, print_interval=10):
     network.to(custom_utils.DEVICE)
 
     for epoch in range(num_epochs):
+        network.train()
         console.log("\nTraining Epoch %d\n" % (epoch + 1))
         running_loss = 0.
         epoch_loss = 0.
@@ -151,9 +152,6 @@ def train(num_epochs, print_interval=10):
         if accuracy[0] > best_accuracy:
             saveModel()
             best_accuracy = accuracy[0]
-
-        network.train()
-
     return pd.DataFrame.from_dict(loss_data)
 
 
@@ -163,6 +161,7 @@ def test_accuracy():
     with torch.no_grad():
         batch_nms_boxes = []
         batch_targets = []
+
         for data_index, data in enumerate(tqdm(test_dataloader)):
             images, target = data
             images = images.to(custom_utils.DEVICE)
@@ -188,7 +187,7 @@ console.log("Creating model")
 network = ObjectDetectionModel()
 
 console.log("Initializing loss and optimizer")
-loss_fn = Loss(5, 0.5)
+loss_fn = Loss(10, 0.5)
 optimizer = torch.optim.Adam(network.parameters(), lr=LR)
 # scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=LR, max_lr=0.1)
 
