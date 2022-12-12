@@ -80,10 +80,10 @@ class ObjectDetectionModel(nn.Module):
         # 7 x 7
         # self.output = net_utils.build_output_components(1024)
         self.output = nn.Sequential(
-            nn.Linear(1024*7*7, 4096*7*7),
+            nn.Linear(1024*7*7, 4096),
             nn.ReLU(),
             nn.Dropout(),
-            nn.Linear(4096*7*7, 23*7*7),
+            nn.Linear(4096, 23*7*7),
             nn.Sigmoid()
         )
 
