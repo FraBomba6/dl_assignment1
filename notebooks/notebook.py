@@ -99,6 +99,7 @@ class ObjectDetectionModel(nn.Module):
         # ]
         # return torch.cat(x, 1)
         # x = self.output(x)
+        x = x.view(-1, 1024*7*7)
         x = self.fc1(x)
         x = self.relu(x)
         x = self.drop(x)
