@@ -24,7 +24,7 @@ torch.manual_seed(3407)
 
 # Initialize training variables
 BATCH = 4
-LR = 0.01
+LR = 0.1
 MOMENTUM = 0.9
 
 # %%
@@ -151,23 +151,7 @@ def test_accuracy():
     with torch.no_grad():
         batch_nms_boxes = []
         batch_targets = []
-        for data_index, data in enumerate(tqdm(train_dataloader)):
-            images, target = data
-            images = images.to(custom_utils.DEVICE)
 
-            outputs = network(images)
-
-            for index, boxes in enumerate(outputs):
-                boxes = custom_utils.from_prediction_to_box(boxes)
-                nms_boxes = custom_utils.non_max_suppression(boxes)
-                nms_boxes = [[data_index * BATCH + index] + box for box in nms_boxes]
-                targets = target[6][index]
-                targets = [[data_index * BATCH + index] + box for box in targets]
-                for box in nms_boxes:
-                    batch_nms_boxes.append(box)
-                for box in targets:
-                    batch_targets.append(box)
-        console.log("Train accuracy is %.2f%%", (custom_utils.mean_average_precision(batch_nms_boxes, batch_targets)[0]*100))
         for data_index, data in enumerate(tqdm(test_dataloader)):
             images, target = data
             images = images.to(custom_utils.DEVICE)
