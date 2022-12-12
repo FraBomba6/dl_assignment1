@@ -78,10 +78,10 @@ class ObjectDetectionModel(nn.Module):
         # 7 x 7
         # self.output = net_utils.build_output_components(1024)
         self.output = nn.Sequential(
-            nn.Linear(1024*7*7, 512*7*7),
+            nn.Linear(1024*7*7, 256*7*7),
             nn.ReLU(),
             nn.Dropout(),
-            nn.Linear(512*7*7, 23*7*7)
+            nn.Linear(256*7*7, 23*7*7)
         )
 
     def forward(self, x):
