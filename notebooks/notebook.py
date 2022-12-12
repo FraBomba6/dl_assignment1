@@ -79,10 +79,10 @@ class ObjectDetectionModel(nn.Module):
             self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024))
         # 7 x 7
         # self.output = net_utils.build_output_components(1024)
-        self.fc1 = nn.Linear(1024, 512)
+        self.fc1 = nn.Linear(1024*7*7*4, 512*7*7*4)
         self.relu = nn.ReLU()
         self.drop = nn.Dropout()
-        self.fc2 = nn.Linear(512, 23)
+        self.fc2 = nn.Linear(512*7*7*4, 23*7*7*4)
         # self.output = nn.Sequential(
         #     nn.Linear(1024*7*7, 512*7*7),
         #     nn.ReLU(),
