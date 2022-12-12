@@ -10,8 +10,8 @@ def build_simple_convolutional_block(in_channels, out_channels, conv_kernel=3, c
         padding = "same"
     layers = nn.Sequential()
     layers.append(nn.Conv2d(in_channels, out_channels, kernel_size=conv_kernel, stride=conv_stride, padding=padding))
-    layers.append(nn.BatchNorm2d(out_channels))
     layers.append(nn.ReLU())
+    layers.append(nn.BatchNorm2d(out_channels))
     if dropout:
         layers.append(nn.Dropout())
     if pool_kernel is not None:
