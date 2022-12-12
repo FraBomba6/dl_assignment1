@@ -65,18 +65,16 @@ class ObjectDetectionModel(nn.Module):
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256, conv_kernel=1))
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 512, pool_kernel=2))
         # 31 x 31
-        for i in range(5):
+        for i in range(4):
             self.convolutions.append(net_utils.build_simple_convolutional_block(512, 256, conv_kernel=1))
             self.convolutions.append(net_utils.build_simple_convolutional_block(256, 512))
         self.convolutions.append(net_utils.build_simple_convolutional_block(512, 512, conv_kernel=1))
         self.convolutions.append(net_utils.build_simple_convolutional_block(512, 1024, pool_kernel=2))
         # 15 x 15
-        for i in range(5):
+        for i in range(4):
             self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 512, conv_kernel=1))
             self.convolutions.append(net_utils.build_simple_convolutional_block(512, 1024))
         self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024, pool_kernel=2))
-        for i in range(3):
-            self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024))
         # 7 x 7
         # self.output = net_utils.build_output_components(1024)
         self.output = nn.Sequential(
