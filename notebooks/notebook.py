@@ -24,7 +24,7 @@ torch.manual_seed(3407)
 
 # Initialize training variables
 BATCH = 4
-LR = 0.1
+LR = 0.01
 MOMENTUM = 0.9
 
 # %%
