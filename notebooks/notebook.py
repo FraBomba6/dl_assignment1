@@ -78,16 +78,24 @@ class ObjectDetectionModel(nn.Module):
         for i in range(3):
             self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024))
         # 7 x 7
-        self.output = net_utils.build_output_components(1024)
+        # self.output = net_utils.build_output_components(1024)
+        self.output = nn.Sequential(
+            nn.Linear(1024*7*7, 512*7*7),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.Linear(512*7*7, 23*7*7)
+        )
 
     def forward(self, x):
         x = self.convolutions(x)
-        x = [
-            self.output[0](x),
-            self.output[1](x),
-            self.output[2](x)
-        ]
-        return torch.cat(x, 1)
+        # x = [
+        #     self.output[0](x),
+        #     self.output[1](x),
+        #     self.output[2](x)
+        # ]
+        # return torch.cat(x, 1)
+        x = self.output(x)
+        return x.reshape(-1, 7, 7, 23)
 
 
 # %%
