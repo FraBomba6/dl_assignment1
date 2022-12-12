@@ -65,13 +65,13 @@ class ObjectDetectionModel(nn.Module):
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256, conv_kernel=1))
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 512, pool_kernel=2))
         # 31 x 31
-        for i in range(3):
+        for i in range(4):
             self.convolutions.append(net_utils.build_simple_convolutional_block(512, 256, conv_kernel=1))
             self.convolutions.append(net_utils.build_simple_convolutional_block(256, 512))
         self.convolutions.append(net_utils.build_simple_convolutional_block(512, 512, conv_kernel=1))
         self.convolutions.append(net_utils.build_simple_convolutional_block(512, 1024, pool_kernel=2))
         # 15 x 15
-        for i in range(3):
+        for i in range(4):
             self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 512, conv_kernel=1))
             self.convolutions.append(net_utils.build_simple_convolutional_block(512, 1024))
         self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024, pool_kernel=2))
@@ -83,8 +83,10 @@ class ObjectDetectionModel(nn.Module):
             nn.Linear(1024*7*7, 256*7*7),
             nn.ReLU(),
             nn.Dropout(),
-            nn.Linear(256*7*7, 23*7*7),
-            nn.Sigmoid()
+            nn.Linear(256*7*7, 64*7*7),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.Linear(64 * 7 * 7, 23 * 7 * 7)
         )
 
     def forward(self, x):
