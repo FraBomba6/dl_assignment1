@@ -83,7 +83,8 @@ class ObjectDetectionModel(nn.Module):
             nn.Linear(1024*7*7, 512*7*7),
             nn.ReLU(),
             nn.Dropout(),
-            nn.Linear(512*7*7, 23*7*7)
+            nn.Linear(512*7*7, 23*7*7),
+            nn.Sigmoid()
         )
 
     def forward(self, x):
