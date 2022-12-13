@@ -61,6 +61,7 @@ class ObjectDetectionModel(nn.Module):
         self.convolutions.append(net_utils.build_simple_convolutional_block(64, 192, conv_kernel=3, pool_kernel=2))
         self.convolutions.append(net_utils.build_simple_convolutional_block(192, 128, conv_kernel=1))
         self.convolutions.append(nn.ReLU())
+        self.convolutions.append(nn.BatchNorm2d(128))
         # 62 x 62
         self.convolutions.append(net_utils.build_simple_convolutional_block(128, 256, conv_kernel=1))
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256, pool_kernel=2))
@@ -68,6 +69,7 @@ class ObjectDetectionModel(nn.Module):
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256, conv_kernel=1))
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 512, pool_kernel=2))
         self.convolutions.append(nn.ReLU())
+        self.convolutions.append(nn.BatchNorm2d(512))
         # 31 x 31
         for i in range(4):
             self.convolutions.append(net_utils.build_simple_convolutional_block(512, 256, conv_kernel=1))
@@ -76,6 +78,7 @@ class ObjectDetectionModel(nn.Module):
         self.convolutions.append(net_utils.build_simple_convolutional_block(512, 512, conv_kernel=1))
         self.convolutions.append(net_utils.build_simple_convolutional_block(512, 1024, pool_kernel=2))
         self.convolutions.append(nn.ReLU())
+        self.convolutions.append(nn.BatchNorm2d(1024))
         # 15 x 15
         for i in range(4):
             self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 512, conv_kernel=1))
@@ -83,6 +86,7 @@ class ObjectDetectionModel(nn.Module):
             self.convolutions.append(nn.ReLU())
         self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024, pool_kernel=2))
         self.convolutions.append(nn.ReLU())
+        self.convolutions.append(nn.BatchNorm2d(1024))
         # for i in range(3):
         #     self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024))
         #     self.convolutions.append(nn.ReLU())
