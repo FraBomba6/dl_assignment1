@@ -91,10 +91,8 @@ class ObjectDetectionModel(nn.Module):
             nn.Linear(1024*7*7, 256*7*7),
             nn.ReLU(),
             # nn.Dropout(),
-            nn.Linear(256*7*7, 64*7*7),
-            nn.ReLU(),
             # nn.Dropout(),
-            nn.Linear(64 * 7 * 7, 23 * 7 * 7)
+            nn.Linear(256 * 7 * 7, 23 * 7 * 7)
         )
 
     def forward(self, x):
