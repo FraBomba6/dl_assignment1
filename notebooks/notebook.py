@@ -24,7 +24,7 @@ torch.manual_seed(3407)
 
 # Initialize training variables
 BATCH = 4
-LR = 0.01
+LR = 0.0005
 MOMENTUM = 0.9
 
 # %%
@@ -56,48 +56,39 @@ class ObjectDetectionModel(nn.Module):
         self.convolutions = nn.Sequential()
         # 256 x 256
         self.convolutions.append(net_utils.build_simple_convolutional_block(3, 64, conv_kernel=7, conv_stride=2))
-        self.convolutions.append(nn.ReLU())
         # 125 x 125
         self.convolutions.append(net_utils.build_simple_convolutional_block(64, 192, conv_kernel=3, pool_kernel=2))
         self.convolutions.append(net_utils.build_simple_convolutional_block(192, 128, conv_kernel=1))
-        self.convolutions.append(nn.ReLU())
         self.convolutions.append(nn.BatchNorm2d(128))
         # 62 x 62
         self.convolutions.append(net_utils.build_simple_convolutional_block(128, 256, conv_kernel=1))
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256, pool_kernel=2))
-        self.convolutions.append(nn.ReLU())
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 256, conv_kernel=1))
         self.convolutions.append(net_utils.build_simple_convolutional_block(256, 512, pool_kernel=2))
-        self.convolutions.append(nn.ReLU())
         self.convolutions.append(nn.BatchNorm2d(512))
         # 31 x 31
         for i in range(4):
             self.convolutions.append(net_utils.build_simple_convolutional_block(512, 256, conv_kernel=1))
             self.convolutions.append(net_utils.build_simple_convolutional_block(256, 512))
-            self.convolutions.append(nn.ReLU())
         self.convolutions.append(net_utils.build_simple_convolutional_block(512, 512, conv_kernel=1))
         self.convolutions.append(net_utils.build_simple_convolutional_block(512, 512, pool_kernel=2))
         self.convolutions.append(net_utils.build_simple_convolutional_block(512, 512, pool_kernel=2))
-        self.convolutions.append(nn.ReLU())
         self.convolutions.append(nn.BatchNorm2d(512))
         # 15 x 15
-        # for i in range(4):
-        #     self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 512, conv_kernel=1))
-        #     self.convolutions.append(net_utils.build_simple_convolutional_block(512, 1024))
-        #     self.convolutions.append(nn.ReLU())
-        # self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024, pool_kernel=2))
-        # self.convolutions.append(nn.ReLU())
-        # self.convolutions.append(nn.BatchNorm2d(1024))
-        # for i in range(3):
-        #     self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024))
-        #     self.convolutions.append(nn.ReLU())
-        # self.output = net_utils.build_output_components(1024)
+        for i in range(4):
+            self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 512, conv_kernel=1))
+            self.convolutions.append(net_utils.build_simple_convolutional_block(512, 1024))
+        self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024, pool_kernel=2))
+        self.convolutions.append(nn.BatchNorm2d(1024))
+        for i in range(3):
+            self.convolutions.append(net_utils.build_simple_convolutional_block(1024, 1024))
+        self.output = net_utils.build_output_components(1024)
         self.output = nn.Sequential(
-            nn.Linear(512*7*7, 256*7*7),
+            nn.Linear(1024*7*7, 4096),
             nn.ReLU(),
             # nn.Dropout(),
             # nn.Dropout(),
-            nn.Linear(256 * 7 * 7, 23 * 7 * 7)
+            nn.Linear(4096, 23 * 7 * 7)
         )
 
     def forward(self, x):
@@ -108,7 +99,7 @@ class ObjectDetectionModel(nn.Module):
         #     self.output[2](x)
         # ]
         # return torch.cat(x, 1)
-        x = x.view(-1, 512*7*7)
+        x = x.view(-1, 1024*7*7)
         x = self.output(x)
         return x.reshape(-1, 7, 7, 23)
 
