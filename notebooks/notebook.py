@@ -181,7 +181,7 @@ def test_accuracy():
                 for box in targets:
                     batch_targets.append(box)
 
-        console.log("The test accuracy over the train set is %.2f%%", (custom_utils.mean_average_precision(batch_nms_boxes, batch_targets)[0].item()*100))
+        console.log("The test accuracy over the train set is %.2f%%" % (custom_utils.mean_average_precision(batch_nms_boxes, batch_targets)[0].item()*100))
 
         for data_index, data in enumerate(tqdm(test_dataloader)):
             images, target = data
